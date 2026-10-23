@@ -186,6 +186,29 @@ async function renderTeams(){
   v.innerHTML=`<div class="sec"><h2>Teams</h2><small>${teams.length} teams${stale?' · stale':''}</small></div><div class="grid g3">${cards}</div>`;
 }
 
+// roster sort state + helpers (shared with team detail modal)
+let TEAM_ROSTER=[], RSORT={k:'pts',dir:-1};
+const RCOLS=[['height','HT',0,0],['weight','WT',0,0],['age','AGE',0,1],['exp','EXP',0,1],['gp','GP',0,1],['min','MIN',1,1],['pts','PTS',1,1],['reb','REB',1,1],['ast','AST',1,1],['fgPct','FG%',1,1],['threePct','3P%',1,1],['tsPct','TS%',1,1]];
+const rget=(p,key)=>key==='height'?p.height:(key==='weight'?p.weight:(key==='age'?p.age:(key==='exp'?p.exp:(p.stats&&p.stats[key]))));
+const rcell=(p,key,dec)=>{const v=rget(p,key);if(v==null||v==='')return '–';const n=Number(v);return Number.isFinite(n)?(dec?n.toFixed(1):String(v)):esc(v)};
+function rSort(k){if(RSORT.k===k){RSORT.dir=-RSORT.dir}else{RSORT.k=k;RSORT.dir=-1}drawRoster()}
+function drawRoster(){
+  const sorted=[...TEAM_ROSTER].sort((a,b)=>{
+    const va=rget(a,RSORT.k),vb=rget(b,RSORT.k);
+    const na=Number(va),nb=Number(vb);
+    if(Number.isFinite(na)&&Number.isFinite(nb))return (na-nb)*RSORT.dir;
+    return String(va==null?'':va).localeCompare(String(vb==null?'':vb))*RSORT.dir;
+  });
+  const head=`<th>Player</th>${RCOLS.map(([k,l,,sortable])=>sortable?`<th class="n${k===RSORT.k?' on':''}" onclick="rSort('${k}')">${l}${k===RSORT.k?(RSORT.dir<0?' ▾':' ▴'):''}</th>`:`<th class="n">${l}</th>`).join('')}`;
+  const rows=sorted.map(p=>{
+    const nameCell=`<td class="pname"><span class="mu sm">${esc(p.jersey||'')}</span> ${esc(p.name)} <span class="mu sm">${esc(p.position||'')}</span></td>`;
+    const cells=RCOLS.map(([k,l,dec])=>`<td class="n">${rcell(p,k,dec)}</td>`).join('');
+    return `<tr>${nameCell}${cells}</tr>`;
+  }).join('');
+  const el=document.getElementById('rtable');
+  if(el)el.innerHTML=`<thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="13" class="mu">No roster.</td></tr>'}</tbody>`;
+}
+
 async function openTeam(abbr){
   const m=$('#modal');
   m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="loading">Loading team…</div></div></div>`;
@@ -197,23 +220,16 @@ async function openTeam(abbr){
   const recCells=[['Record',esc(data.record||'–')],['Streak',c('streak')],['Last 10',c('Last Ten Games')],['Head Coach',esc(data.coach||'–')],['Season',esc(data.season||'–')]];
   const perGame=[['PPG',c('avgPointsFor')],['OPP PPG',c('avgPointsAgainst')],['DIFF',c('differential')],['HOME',c('Home')],['ROAD',c('Road')],['CONF',c('vs. Conf.')]];
   const leadCard=(lk,l)=>`<div class="lead">${l&&l.headshot?`<img class="hd" src="${esc(l.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<div style="min-width:0"><span class="lk">${lk}</span><span class="lv">${l&&l.val!=null?Number(l.val).toFixed(1):'–'}</span><div class="ln">${esc(l&&l.name||'–')}</div></div></div>`;
-  const RCOLS=[['height','HT',0],['weight','WT',0],['age','AGE',0],['exp','EXP',0],['gp','GP',0],['min','MIN',1],['pts','PTS',1],['reb','REB',1],['ast','AST',1],['fgPct','FG%',1],['threePct','3P%',1],['tsPct','TS%',1]];
-  const rget=(p,key)=>key==='height'?p.height:(key==='weight'?p.weight:(key==='age'?p.age:(key==='exp'?p.exp:(p.stats&&p.stats[key]))));
-  const rcell=(p,key,dec)=>{const v=rget(p,key);if(v==null||v==='')return '–';const n=Number(v);return Number.isFinite(n)?(dec?n.toFixed(1):String(v)):esc(v)};
-  const rhead=`<th>Player</th>${RCOLS.map(([k,l])=>`<th class="n">${l}</th>`).join('')}`;
-  const rrows=(data.roster||[]).map(p=>{
-    const nameCell=`<td class="pname"><span class="mu sm">${esc(p.jersey||'')}</span> ${esc(p.name)} <span class="mu sm">${esc(p.position||'')}</span></td>`;
-    const cells=RCOLS.map(([k,l,dec])=>`<td class="n">${rcell(p,k,dec)}</td>`).join('');
-    return `<tr>${nameCell}${cells}</tr>`;
-  }).join('');
+  TEAM_ROSTER=data.roster||[]; RSORT={k:'pts',dir:-1};
   m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button>
     <div class="thd">${t.logo?`<img class="lg" src="${esc(t.logo)}" alt="">`:''}<div><div class="tn">${esc(t.name||abbr)}</div><div class="tsub">${esc(data.record||'')}${data.coach?' · '+esc(data.coach):''}</div></div></div>
     <div class="sec" style="margin-top:0"><h2>Record</h2></div><div class="trec">${recCells.map(x=>cell(x[0],x[1])).join('')}</div>
     <div class="sec" style="margin-top:0"><h2>Per game</h2></div><div class="trec">${perGame.map(x=>cell(x[0],x[1])).join('')}</div>
     <div class="sec" style="margin-top:0"><h2>Team leaders</h2></div><div class="leads">${leadCard('Points leader',L.points)}${leadCard('Rebounds leader',L.rebounds)}${leadCard('Assists leader',L.assists)}</div>
-    <div class="sec" style="margin-top:0"><h2>Roster</h2><small>${data.count} players</small></div>
-    <div class="stbl"><table class="sortable"><thead><tr>${rhead}</tr></thead><tbody>${rrows||'<tr><td colspan="13" class="mu">No roster.</td></tr>'}</tbody></table></div>
+    <div class="sec" style="margin-top:0"><h2>Roster</h2><small>${data.count} players · click a column to sort</small></div>
+    <div class="stbl"><table class="sortable" id="rtable"></table></div>
   </div></div>`;
+  drawRoster();
 }
 
 // ---------- Players ----------
