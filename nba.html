@@ -70,6 +70,23 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .bxsum{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mu);margin-bottom:8px}
 .bxsum b{color:var(--tx)}
 @media(max-width:700px){.bxteams{grid-template-columns:1fr}.odds-row{grid-template-columns:1fr;text-align:left}}
+/* full stats tables */
+.sortable{width:100%;border-collapse:collapse}.sortable th{background:var(--p);color:var(--mu);font-size:11px;text-transform:uppercase;font-weight:600;padding:7px 8px;border-bottom:2px solid var(--ln);cursor:pointer;white-space:nowrap;text-align:left}.sortable th.n{text-align:right}
+.sortable th:hover{color:#fff}.sortable th.on{color:var(--acc)}
+.sortable td{padding:6px 8px;border-bottom:1px solid var(--ln);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sortable td.pname{font-weight:700}.sortable .tlogo{width:20px;height:20px;border-radius:50%;object-fit:contain;vertical-align:middle;margin-right:6px;background:#1e1c24}
+/* team detail */
+.thd{display:flex;align-items:center;gap:14px;margin-bottom:14px}.thd .lg{width:56px;height:56px}
+.thd .tn{font-size:20px;font-weight:700}.thd .tsub{color:var(--mu);font-size:12px}
+.trec{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:14px}
+.trec .cell{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px}
+.trec .k{color:var(--mu);font-size:10px;text-transform:uppercase;letter-spacing:.04em;display:block}
+.trec .v{font:700 18px Impact,'Arial Narrow',sans-serif;color:var(--tx)}
+.leads{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.lead{display:flex;align-items:center;gap:10px;background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px}
+.lead .hd{width:34px;height:34px}.lead .lk{color:var(--mu);font-size:10px;text-transform:uppercase;display:block}
+.lead .lv{font:700 18px Impact,'Arial Narrow',sans-serif;color:var(--acc)}.lead .ln{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){.leads{grid-template-columns:1fr}}
 </style></head><body>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
@@ -171,28 +188,74 @@ async function renderTeams(){
 
 async function openTeam(abbr){
   const m=$('#modal');
-  m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="loading">Loading roster…</div></div></div>`;
+  m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="loading">Loading team…</div></div></div>`;
   const {data}=await api('/api/team/'+abbr);
-  if(data.error){m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="err">Roster unavailable: ${esc(data.error||'')}</div></div></div>`;return}
-  const rows=(data.roster||[]).map(p=>`<div class="prow"><span class="rk">${esc(p.jersey||'–')}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.position||'')}</span><span class="mu sm" style="width:110px;text-align:right">${esc([p.height,p.weight].filter(Boolean).join(' · '))}</span></div>`).join('');
+  if(data.error){m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="err">Team unavailable: ${esc(data.error||'')}</div></div></div>`;return}
+  const t=data.team||{}, st=data.standings||{}, L=data.leaders||{};
+  const c=k=>{const v=st[k];return (v==null||v==='')?'–':esc(v)};
+  const cell=(k,v)=>`<div class="cell"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const recCells=[['Record',esc(data.record||'–')],['Streak',c('streak')],['Last 10',c('Last Ten Games')],['Head Coach',esc(data.coach||'–')],['Season',esc(data.season||'–')]];
+  const perGame=[['PPG',c('avgPointsFor')],['OPP PPG',c('avgPointsAgainst')],['DIFF',c('differential')],['HOME',c('Home')],['ROAD',c('Road')],['CONF',c('vs. Conf.')]];
+  const leadCard=(lk,l)=>`<div class="lead">${l&&l.headshot?`<img class="hd" src="${esc(l.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<div style="min-width:0"><span class="lk">${lk}</span><span class="lv">${l&&l.val!=null?Number(l.val).toFixed(1):'–'}</span><div class="ln">${esc(l&&l.name||'–')}</div></div></div>`;
+  const RCOLS=[['height','HT',0],['weight','WT',0],['age','AGE',0],['exp','EXP',0],['gp','GP',0],['min','MIN',1],['pts','PTS',1],['reb','REB',1],['ast','AST',1],['fgPct','FG%',1],['threePct','3P%',1],['tsPct','TS%',1]];
+  const rget=(p,key)=>key==='height'?p.height:(key==='weight'?p.weight:(key==='age'?p.age:(key==='exp'?p.exp:(p.stats&&p.stats[key]))));
+  const rcell=(p,key,dec)=>{const v=rget(p,key);if(v==null||v==='')return '–';const n=Number(v);return Number.isFinite(n)?(dec?n.toFixed(1):String(v)):esc(v)};
+  const rhead=`<th>Player</th>${RCOLS.map(([k,l])=>`<th class="n">${l}</th>`).join('')}`;
+  const rrows=(data.roster||[]).map(p=>{
+    const nameCell=`<td class="pname"><span class="mu sm">${esc(p.jersey||'')}</span> ${esc(p.name)} <span class="mu sm">${esc(p.position||'')}</span></td>`;
+    const cells=RCOLS.map(([k,l,dec])=>`<td class="n">${rcell(p,k,dec)}</td>`).join('');
+    return `<tr>${nameCell}${cells}</tr>`;
+  }).join('');
   m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button>
-    <div class="sec" style="margin-top:0"><h2>${esc(data.team&&data.team.name||abbr)} · Roster</h2><small>${data.count} players</small></div>${rows||'<div class="loading">No roster.</div>'}</div></div>`;
+    <div class="thd">${t.logo?`<img class="lg" src="${esc(t.logo)}" alt="">`:''}<div><div class="tn">${esc(t.name||abbr)}</div><div class="tsub">${esc(data.record||'')}${data.coach?' · '+esc(data.coach):''}</div></div></div>
+    <div class="sec" style="margin-top:0"><h2>Record</h2></div><div class="trec">${recCells.map(x=>cell(x[0],x[1])).join('')}</div>
+    <div class="sec" style="margin-top:0"><h2>Per game</h2></div><div class="trec">${perGame.map(x=>cell(x[0],x[1])).join('')}</div>
+    <div class="sec" style="margin-top:0"><h2>Team leaders</h2></div><div class="leads">${leadCard('Points leader',L.points)}${leadCard('Rebounds leader',L.rebounds)}${leadCard('Assists leader',L.assists)}</div>
+    <div class="sec" style="margin-top:0"><h2>Roster</h2><small>${data.count} players</small></div>
+    <div class="stbl"><table class="sortable"><thead><tr>${rhead}</tr></thead><tbody>${rrows||'<tr><td colspan="13" class="mu">No roster.</td></tr>'}</tbody></table></div>
+  </div></div>`;
 }
 
 // ---------- Players ----------
-let PLAYERS=null;
+let PLAYERS=null, PSTALE=false, PSORT={k:'avgPoints',dir:-1};
+const PCOLS=[
+  {k:'name',label:'Player',fmt:'name'},{k:'teamShortName',label:'Team',fmt:'team'},
+  {k:'gamesPlayed',label:'GP',fmt:'num'},{k:'avgMinutes',label:'MIN',fmt:'dec'},
+  {k:'avgPoints',label:'PTS',fmt:'dec'},{k:'avgRebounds',label:'REB',fmt:'dec'},
+  {k:'avgAssists',label:'AST',fmt:'dec'},{k:'avgSteals',label:'STL',fmt:'dec'},
+  {k:'avgBlocks',label:'BLK',fmt:'dec'},{k:'avgTurnovers',label:'TOV',fmt:'dec'},
+  {k:'fieldGoalPct',label:'FG%',fmt:'pct'},{k:'threePointFieldGoalPct',label:'3P%',fmt:'pct'},
+  {k:'freeThrowPct',label:'FT%',fmt:'pct'},{k:'tsPct',label:'TS%',fmt:'pct'},
+];
+function pval(p,k){return k==='name'?p.name:(k==='teamShortName'?(p.teamShortName||p.team||''):(p.stats&&p.stats[k]));}
+function setSort(k){if(PSORT.k===k){PSORT.dir=-PSORT.dir}else{PSORT.k=k;PSORT.dir=(k==='name'||k==='teamShortName')?1:-1}drawPlayers()}
 async function renderPlayers(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading players…</div>';
-  if(!PLAYERS){const {data}=await api('/api/players');PLAYERS=data.players||[];}
-  const rows=PLAYERS.map((p,i)=>`<div class="prow"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${esc(p.stats&&p.stats.avgPoints!=null?Number(p.stats.avgPoints).toFixed(1):'–')}</span></div>`).join('');
-  v.innerHTML=`<div class="sec"><h2>Players</h2><small>${PLAYERS.length} players · sorted by PPG</small></div>
-    <div class="bar"><input id="pq" placeholder="Search player…" style="flex:1;min-width:200px" oninput="filterPlayers()"></div>
-    <div id="plist">${rows}</div>`;
+  if(!PLAYERS){const {data,stale}=await api('/api/players');PLAYERS=data.players||[];PSTALE=stale;}
+  drawPlayers();
 }
-function filterPlayers(){
-  const q=($('#pq').value||'').toLowerCase();
-  const rows=(PLAYERS||[]).filter(p=>(p.name||'').toLowerCase().includes(q)).map((p,i)=>`<div class="prow"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${esc(p.stats&&p.stats.avgPoints!=null?Number(p.stats.avgPoints).toFixed(1):'–')}</span></div>`).join('');
-  $('#plist').innerHTML=rows||'<div class="loading">No matches.</div>';
+function drawPlayers(){
+  const v=$('#view');
+  const q=($('#pq')&&$('#pq').value||'').toLowerCase();
+  const list=(PLAYERS||[]).filter(p=>(p.name||'').toLowerCase().includes(q));
+  const dir=PSORT.dir;
+  const sorted=[...list].sort((a,b)=>{
+    const va=pval(a,PSORT.k),vb=pval(b,PSORT.k);
+    const na=Number(va),nb=Number(vb);
+    if(Number.isFinite(na)&&Number.isFinite(nb))return (na-nb)*dir;
+    return String(va==null?'':va).localeCompare(String(vb==null?'':vb))*dir;
+  });
+  const head=PCOLS.map(c=>`<th class="${c.k===PSORT.k?'on':''}${c.fmt==='name'||c.fmt==='team'?'':' n'}" onclick="setSort('${c.k}')">${c.label}${c.k===PSORT.k?(PSORT.dir<0?' ▾':' ▴'):''}</th>`).join('');
+  const rows=sorted.map(p=>`<tr>${PCOLS.map(c=>{
+    if(c.fmt==='name')return `<td class="pname">${p.headshot?`<img class="tlogo" src="${esc(p.headshot)}" onerror="this.style.display='none'" alt="">`:''}${esc(p.name)}</td>`;
+    if(c.fmt==='team')return `<td class="mu">${esc(p.teamShortName||p.team||'')}</td>`;
+    const val=p.stats&&p.stats[c.k];let s='–';
+    if(val!=null&&val!==''){const n=Number(val);s=(c.fmt==='pct'||c.fmt==='dec')?n.toFixed(1):String(val);}
+    return `<td class="n">${s}</td>`;
+  }).join('')}</tr>`).join('');
+  v.innerHTML=`<div class="sec"><h2>Players</h2><small>${list.length} players · click a column to sort${PSTALE?' · stale':''}</small></div>
+    <div class="bar"><input id="pq" placeholder="Search player…" style="flex:1;min-width:200px" oninput="drawPlayers()"></div>
+    <div class="stbl"><table class="sortable"><thead><tr>${head}</tr></thead><tbody>${rows||'<tr><td colspan="14" class="mu">No matches.</td></tr>'}</tbody></table></div>`;
 }
 
 // ---------- Leaders ----------

@@ -229,6 +229,7 @@ async function teams() {
           const st = rec[t.abbr] || [];
           const byName = st.reduce((a, x) => { a[x.name] = x.displayValue != null ? x.displayValue : x.value; return a; }, {});
           t.wins = byName.wins; t.losses = byName.losses; t.winPercent = byName.winPercent;
+          t.stats = byName; // full standings stats (PPG, OPP PPG, DIFF, HOME, ROAD, CONF, streak, last10, …)
         }
       } catch (e) {}
     }
@@ -236,48 +237,112 @@ async function teams() {
   } catch (e) { return r; }
 }
 
-// ---- team roster ----
-async function roster(abbr) {
+// ---- team detail: roster + coach + full standings stats + team leaders + per-player stats ----
+async function teamDetail(abbr) {
   const r = await proxied('roster', 'roster:' + abbr, ESPN + '/teams/' + abbr.toLowerCase() + '/roster');
   if (r.status !== 200 || r.stale) return r;
   try {
     const data = JSON.parse(r.payload);
-    const athletes = (data.athletes || []).map(a => ({
-      id: a.id, name: a.displayName || a.fullName, shortName: a.shortName,
-      jersey: a.jersey, position: a.position && a.position.abbreviation,
-      height: a.displayHeight, weight: a.displayWeight, age: a.age,
-      headshot: a.headshot && a.headshot.href, college: a.college, experience: a.experience && a.experience.years,
-    }));
-    return { payload: JSON.stringify({ team: { name: data.team && data.team.displayName, abbr: data.team && data.team.abbreviation }, roster: athletes, count: athletes.length }), status: 200, stale: 0, cache: 'upstream' };
+    const team = data.team || {};
+    const coach = (data.coach && data.coach[0]) || {};
+
+    // full standings stats for this team (PPG / OPP PPG / DIFF / HOME / ROAD / CONF / streak / last10 …)
+    let st = {};
+    const sRow = getStaging.get('standings', 'standings');
+    if (sRow) {
+      try {
+        const sd = JSON.parse(sRow.payload);
+        for (const g of (sd.children || [])) for (const en of (g.standings && g.standings.entries) || []) {
+          if (en.team && en.team.abbreviation === team.abbreviation) {
+            st = (en.stats || []).reduce((a, x) => { a[x.name] = x.displayValue != null ? x.displayValue : x.value; return a; }, {});
+          }
+        }
+      } catch (e) {}
+    }
+
+    // player stats snapshot (for roster join + team leaders)
+    const psRow = getStaging.get('stats', 'stats');
+    let players = [];
+    if (psRow) { try { players = parsePlayerStats(psRow.payload); } catch (e) {} }
+    const pmap = {};
+    for (const p of players) pmap[p.id] = p;
+
+    // team leaders (formulated: top scorer / rebounder / assister on this roster)
+    const teamPlayers = players.filter(p => (p.teamShortName || '').toUpperCase() === (team.abbreviation || '').toUpperCase());
+    const topBy = f => teamPlayers.reduce((best, p) => {
+      const v = num(p.stats && p.stats[f]);
+      return (!best || v > best.v) ? { v, p } : best;
+    }, null);
+    const lPts = topBy('avgPoints'), lReb = topBy('avgRebounds'), lAst = topBy('avgAssists');
+    const lead = (l, f) => l ? { name: l.p.name, headshot: l.p.headshot, val: l.p.stats && l.p.stats[f] } : null;
+
+    const athletes = (data.athletes || []).map(a => {
+      const ps = pmap[a.id] || {};
+      const s2 = ps.stats || {};
+      return {
+        id: a.id, name: a.displayName || a.fullName, shortName: a.shortName,
+        jersey: a.jersey, position: a.position && a.position.abbreviation,
+        height: a.displayHeight, weight: a.displayWeight, age: a.age,
+        exp: a.experience && a.experience.years, headshot: a.headshot && a.headshot.href, college: a.college,
+        stats: {
+          gp: s2.gamesPlayed, min: s2.avgMinutes, pts: s2.avgPoints, reb: s2.avgRebounds,
+          ast: s2.avgAssists, fgPct: s2.fieldGoalPct, threePct: s2.threePointFieldGoalPct,
+          tsPct: s2.tsPct, efgPct: s2.efgPct,
+        },
+      };
+    });
+
+    return { payload: JSON.stringify({
+      team: { id: team.id, name: team.displayName, abbr: team.abbreviation, logo: team.logo, color: team.color ? '#' + team.color : '' },
+      season: team.seasonSummary || '', record: team.recordSummary || '',
+      coach: coach.firstName && coach.lastName ? coach.firstName + ' ' + coach.lastName : '',
+      standings: st,
+      leaders: { points: lead(lPts, 'avgPoints'), rebounds: lead(lReb, 'avgRebounds'), assists: lead(lAst, 'avgAssists') },
+      roster: athletes, count: athletes.length,
+    }), status: 200, stale: 0, cache: 'upstream' };
   } catch (e) { return r; }
 }
 
 // ---- league-wide player stats (322 players) -> powers Players + Leaders ----
 const LEADER_CATS = { points: 'avgPoints', rebounds: 'avgRebounds', assists: 'avgAssists', steals: 'avgSteals', blocks: 'avgBlocks' };
 
+const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+// shared: parse raw ESPN byathlete JSON -> normalized players[] (adds FORMULATED columns)
+function parsePlayerStats(text) {
+  const data = JSON.parse(text);
+  const names = [];
+  for (const cat of (data.categories || [])) for (const n of (cat.names || [])) names.push(n);
+  return (data.athletes || []).map(a => {
+    const ath = a.athlete || {};
+    const vals = [];
+    for (const cat of (a.categories || [])) for (const v of (cat.values || [])) vals.push(v);
+    const stats = {};
+    for (let i = 0; i < names.length; i++) stats[names[i]] = vals[i] != null ? vals[i] : null;
+    // ---- formulated columns (derived, not in ESPN feed) ----
+    // TS% = PTS / (2 * (FGA + 0.44 * FTA)) * 100
+    const pts = num(stats.points), fga = num(stats.fieldGoalsAttempted), fta = num(stats.freeThrowsAttempted);
+    const tsDen = 2 * (fga + 0.44 * fta);
+    stats.tsPct = tsDen > 0 ? +(100 * pts / tsDen).toFixed(1) : null;
+    // eFG% = (FGM + 0.5 * 3PM) / FGA * 100
+    const fgm = num(stats.fieldGoalsMade), tpm = num(stats.threePointFieldGoalsMade);
+    stats.efgPct = fga > 0 ? +(100 * (fgm + 0.5 * tpm) / fga).toFixed(1) : null;
+    return {
+      id: ath.id, name: ath.displayName, shortName: ath.shortName,
+      headshot: ath.headshot && ath.headshot.href,
+      position: ath.position && ath.position.abbreviation,
+      age: ath.age, team: ath.teamName, teamShortName: ath.teamShortName, teamId: ath.teamId,
+      logo: ath.teamLogos && ath.teamLogos[0] && ath.teamLogos[0].href,
+      stats,
+    };
+  });
+}
+
 async function playerStats() {
   const r = await proxied('stats', 'stats', ESPN_STATS);
   if (r.status !== 200 || r.stale) return r;
   try {
-    const data = JSON.parse(r.payload);
-    // flat ordered stat names from top-level categories
-    const names = [];
-    for (const cat of (data.categories || [])) for (const n of (cat.names || [])) names.push(n);
-    const players = (data.athletes || []).map(a => {
-      const ath = a.athlete || {};
-      const vals = [];
-      for (const cat of (a.categories || [])) for (const v of (cat.values || [])) vals.push(v);
-      const stats = {};
-      for (let i = 0; i < names.length; i++) stats[names[i]] = vals[i] != null ? vals[i] : null;
-      return {
-        id: ath.id, name: ath.displayName, shortName: ath.shortName,
-        headshot: ath.headshot && ath.headshot.href,
-        position: ath.position && ath.position.abbreviation,
-        age: ath.age, team: ath.teamName, teamShortName: ath.teamShortName, teamId: ath.teamId,
-        logo: ath.teamLogos && ath.teamLogos[0] && ath.teamLogos[0].href,
-        stats,
-      };
-    });
+    const players = parsePlayerStats(r.payload);
     return { payload: JSON.stringify({ players, count: players.length }), status: 200, stale: 0, cache: 'upstream' };
   } catch (e) { return r; }
 }
@@ -370,7 +435,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname.startsWith('/api/team/')) {
     const abbr = url.pathname.slice('/api/team/'.length).replace(/[^a-zA-Z]/g, '');
     if (!abbr) return send(res, 400, JSON.stringify({ error: 'team required' }));
-    return rp(await roster(abbr));
+    return rp(await teamDetail(abbr));
   }
   if (url.pathname.startsWith('/api/game/')) {
     const id = url.pathname.slice('/api/game/'.length);
