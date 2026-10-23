@@ -99,6 +99,21 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .prow .nm{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow .tm{color:var(--mu);font-size:11px;width:60px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow .val{font:700 16px Impact,'Arial Narrow',sans-serif;min-width:48px;text-align:right;color:var(--acc)}
+/* leaders boxes (3 per row, top 5 + show more) */
+.lead-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+@media(max-width:860px){.lead-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.lead-grid{grid-template-columns:1fr}}
+.leadbox h3{margin-bottom:8px}
+.leadbox .prow{padding:6px 0}
+.leadbox .leadrows .prow:last-child{border-bottom:0}
+.leadmore-wrap{display:flex;justify-content:flex-end;margin-top:8px}
+.leadmore{background:var(--p2);border:1px solid var(--ln);color:var(--mu);padding:4px 14px;font:600 11px inherit;border-radius:99px;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}
+.leadmore:hover{color:#fff;border-color:var(--acc)}
+.leadmore-body .prow:last-child{border-bottom:0}
+/* standings 2-col, top 5 + show all */
+.stand-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.stand-grid .standbox h3{margin-bottom:8px}
+@media(max-width:900px){.stand-grid{grid-template-columns:1fr}}
 /* modal */
 .modal{position:fixed;inset:0;background:#000c;z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
 .mb{background:var(--p);border:1px solid var(--ln);border-radius:12px;max-width:980px;width:100%;padding:18px;position:relative}
@@ -158,6 +173,21 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx)}
 .mm-val.hi{background:rgba(255,105,180,.30);border-radius:4px;padding:1px 5px;color:#ffd7e8;font-weight:700}
+/* results archive calendar */
+.calcard{margin-bottom:18px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.cal-nav{background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:4px 14px;font:700 18px inherit;line-height:1;cursor:pointer}.cal-nav:hover{border-color:var(--acc);color:var(--acc)}
+.cal-title{font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:16px;color:var(--tx)}
+.cal-week,.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal-week span{text-align:center;color:var(--mu);font-size:11px;text-transform:uppercase;padding:3px 0}
+.cal-day{position:relative;aspect-ratio:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:var(--p2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.cal-day.blank{background:none;border:0}
+.cal-day.has{cursor:pointer}.cal-day.has:hover{border-color:var(--acc)}
+.cal-day.sel{border-color:var(--acc);background:rgba(255,107,0,.16)}
+.cal-n{font-weight:700;font-size:14px;color:var(--tx)}
+.cal-c{font:700 10px Impact,'Arial Narrow',sans-serif;color:var(--acc);line-height:1}
+.cal-foot{display:flex;align-items:center;gap:10px;margin-top:12px}
+.cal-all{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:4px 14px;color:var(--mu);cursor:pointer;font:600 12px inherit;text-transform:uppercase;letter-spacing:.03em}.cal-all.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
 </style></head><body>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
@@ -167,7 +197,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 "use strict";
 if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
 
-const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['results','Results'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
+const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['results','Results'],['players','Players'],['leaders','Leaders'],['news','News'],['admin','Admin']];
 let TAB='dash';
 const DATA={};
 
@@ -261,13 +291,24 @@ async function renderStand(){
   if(data.error){v.innerHTML=`<div class="err">Standings unavailable: ${esc(data.error||'')}</div>`;return}
   const cols=['wins','losses','winPercent','gamesBehind','streak','pointsFor','pointsAgainst','pointDifferential'];
   const lab={wins:'W',losses:'L',winPercent:'PCT',gamesBehind:'GB',streak:'Streak',pointsFor:'PF',pointsAgainst:'PA',pointDifferential:'DIFF'};
-  const html=[`<div class="sec"><h2>Standings</h2><small>${esc(data.season||'')}${stale?' · stale':''}</small></div>`];
+  const rowHtml=en=>{const t=en.team||{};const cells=cols.map(c=>`<td class="n">${esc(en.stats&&en.stats[c]!=null?en.stats[c]:'–')}</td>`).join('');
+    return `<tr><td class="n">${esc(en.stats&&en.stats.playoffSeed||'–')}</td><td><span class="tname">${t.logo?`<img class="tlogo" src="${esc(t.logo)}" onerror="this.style.display='none'">`:''}${esc(t.name||'')}</span></td>${cells}</tr>`;};
+  const html=[`<div class="sec"><h2>Standings</h2><small>${esc(data.season||'')} · top 5 per conference${stale?' · stale':''}</small></div><div class="stand-grid">`];
   for(const grp of (data.groups||[])){
-    const rows=(grp.entries||[]).map(en=>{const t=en.team||{};const cells=cols.map(c=>`<td class="n">${esc(en.stats&&en.stats[c]!=null?en.stats[c]:'–')}</td>`).join('');
-      return `<tr><td class="n">${esc(en.stats&&en.stats.playoffSeed||'–')}</td><td><span class="tname">${t.logo?`<img class="tlogo" src="${esc(t.logo)}" onerror="this.style.display='none'">`:''}${esc(t.name||'')}</span></td>${cells}</tr>`;}).join('');
-    html.push(`<div class="card stbl"><h3>${esc(grp.name||'')}</h3><table><thead><tr><th class="n">#</th><th>Team</th>${cols.map(c=>`<th class="n">${lab[c]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`);
+    const entries=(grp.entries||[]).slice().sort((a,b)=>(Number(a.stats&&a.stats.playoffSeed)||99)-(Number(b.stats&&b.stats.playoffSeed)||99));
+    const top5=entries.slice(0,5), rest=entries.slice(5);
+    const gid='st_'+(grp.abbreviation||grp.name||'').replace(/[^a-z0-9]/gi,'');
+    html.push(`<div class="card stbl standbox"><h3>${esc(grp.name||'')}</h3><table><thead><tr><th class="n">#</th><th>Team</th>${cols.map(c=>`<th class="n">${lab[c]}</th>`).join('')}</tr></thead><tbody>${top5.map(rowHtml).join('')}</tbody><tbody id="${gid}" style="display:none">${rest.map(rowHtml).join('')}</tbody></table>${rest.length?`<div class="leadmore-wrap"><button class="leadmore" onclick="toggleStand('${gid}')">Show all</button></div>`:''}</div>`);
   }
+  html.push(`</div>`);
   v.innerHTML=html.join('');
+}
+function toggleStand(id){
+  const el=document.getElementById(id); if(!el)return;
+  const on=el.style.display!=='none';
+  el.style.display=on?'none':'';
+  const btn=el.closest('.standbox').querySelector('.leadmore');
+  if(btn)btn.textContent=on?'Show all':'Show less';
 }
 
 // ---------- Teams ----------
@@ -369,18 +410,26 @@ function drawPlayers(){
 }
 
 // ---------- Leaders ----------
-let LEADER_TAB='points';
-const LEADER_LABEL={points:'PPG',rebounds:'RPG',assists:'APG',steals:'SPG',blocks:'BPG'};
+const LEADER_CATS=[['points','PPG','avgPoints'],['rebounds','RPG','avgRebounds'],['assists','APG','avgAssists'],['steals','SPG','avgSteals'],['blocks','BPG','avgBlocks']];
+const leadRow=(p,i,field)=>`<div class="prow"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${p.stats&&p.stats[field]!=null?Number(p.stats[field]).toFixed(1):'–'}</span></div>`;
 async function renderLeaders(){
   const v=$('#view');
-  const cat=LEADER_TAB;
   v.innerHTML='<div class="loading">Loading leaders…</div>';
-  const {data}=await api('/api/leaders?cat='+cat+'&limit=25');
-  const leaders=data.leaders||[];
-  const rows=leaders.map((p,i)=>`<div class="prow"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${esc(p.stats&&p.stats[data.field]!=null?Number(p.stats[data.field]).toFixed(1):'–')}</span></div>`).join('');
-  v.innerHTML=`<div class="sec"><h2>League Leaders</h2><small>${esc(LEADER_LABEL[cat]||'')} per game</small></div>
-    <div class="tabs">${Object.keys(LEADER_LABEL).map(k=>`<button class="${k===cat?'on':''}" onclick="LEADER_TAB='${k}';renderLeaders()">${LEADER_LABEL[k]}</button>`).join('')}</div>
-    ${rows||'<div class="loading">No data.</div>'}`;
+  const {data,stale}=await api('/api/players');
+  const players=(data.players||[]).filter(p=>p&&p.stats);
+  const cards=LEADER_CATS.map(([cat,label,field])=>{
+    const sorted=players.slice().sort((a,b)=>(Number(b.stats[field])||0)-(Number(a.stats[field])||0));
+    const top5=sorted.slice(0,5), rest=sorted.slice(5,25);
+    return `<div class="card leadbox"><h3>${label}</h3><div class="leadrows">${top5.map((p,i)=>leadRow(p,i,field)).join('')}</div>${rest.length?`<div class="leadmore-wrap"><button class="leadmore" onclick="toggleLead('l_${cat}')">Show more</button></div><div class="leadmore-body" id="l_${cat}" style="display:none">${rest.map((p,i)=>leadRow(p,i+5,field)).join('')}</div>`:''}</div>`;
+  });
+  v.innerHTML=`<div class="sec"><h2>League Leaders</h2><small>Top 5 per category · per game${stale?' · stale':''}</small></div><div class="lead-grid">${cards.join('')}</div>`;
+}
+function toggleLead(id){
+  const el=document.getElementById(id); if(!el)return;
+  const on=el.style.display!=='none';
+  el.style.display=on?'none':'block';
+  const btn=el.closest('.leadbox').querySelector('.leadmore');
+  if(btn)btn.textContent=on?'Show more':'Show less';
 }
 
 // ---------- Matchup + Top-5 helpers (inline MMA comparison inside game cards) ----------
@@ -440,33 +489,50 @@ function top5HTML(players,ha,hn,aa,an){
   return `<div class="tp5-head">Top 5 Players</div><div class="tp5-grid">${render(ha,hn,false)}${render(aa,an,true)}</div>`;
 }
 
-// ---------- Results archive (final games + team-form trends) ----------
+// ---------- Results archive (card view + calendar) ----------
+let _res=null, _calY=0, _calM=0, _calSel='';
+async function getResults(){if(_res)return _res;const {data}=await api('/api/results');_res=(data&&data.results)||[];_res.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));return _res;}
+function resKey(iso){const d=new Date(iso);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function resByDay(rs){const m=new Map();for(const r of rs){const k=resKey(r.date);if(!m.has(k))m.set(k,[]);m.get(k).push(r);}return m;}
 async function renderResults(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading results…</div>';
-  const {data}=await api('/api/results');
-  if(data.error||!data.results||!data.results.length){v.innerHTML=`<div class="sec"><h2>Results Archive</h2></div><div class="card"><p class="mu">No archived results yet — games are auto-archived once they finish.</p></div>`;return}
-  const results=[...data.results].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
-  const form={};
-  for(const r of results){
-    const h=r.home,a=r.away;if(!h||!a)continue;
-    if(!form[h.abbr])form[h.abbr]={abbr:h.abbr,name:h.name,w:0,l:0};
-    if(!form[a.abbr])form[a.abbr]={abbr:a.abbr,name:a.name,w:0,l:0};
-    if(h.winner){form[h.abbr].w++;form[a.abbr].l++}else if(a.winner){form[a.abbr].w++;form[h.abbr].l++}
+  const rs=await getResults();
+  if(!rs.length){v.innerHTML=`<div class="sec"><h2>Results Archive</h2></div><div class="card"><p class="mu">No archived results yet — games are auto-archived once they finish.</p></div>`;return;}
+  if(!_calY){const d=new Date(rs[0].date);_calY=d.getFullYear();_calM=d.getMonth();}
+  drawResults(v,rs);
+}
+function drawResults(v,rs){
+  const byDay=resByDay(rs);
+  const mName=new Date(_calY,_calM,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const first=new Date(_calY,_calM,1).getDay();
+  const nDays=new Date(_calY,_calM+1,0).getDate();
+  const has=new Set();
+  for(const r of rs){const d=new Date(r.date);if(d.getFullYear()===_calY&&d.getMonth()===_calM)has.add(d.getDate());}
+  let cells='';
+  for(let i=0;i<first;i++)cells+='<div class="cal-day blank"></div>';
+  for(let d=1;d<=nDays;d++){
+    const key=`${_calY}-${String(_calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const h=byDay.has(key),cnt=h?byDay.get(key).length:0;
+    cells+=`<div class="cal-day${h?' has':''}${key===_calSel?' sel':''}" data-d="${key}"><span class="cal-n">${d}</span>${cnt?`<span class="cal-c">${cnt}</span>`:''}</div>`;
   }
-  const formList=Object.values(form).sort((a,b)=>{const pa=a.w/(a.w+a.l||1),pb=b.w/(b.w+b.l||1);return pb-pa||(b.w-a.w)});
-  const formCards=formList.map(t=>{
-    const gp=t.w+t.l,pct=gp?Math.round(t.w/gp*100):0;
-    return `<div class="form-card"><div class="form-nm">${esc(t.abbr)}</div><div class="form-wl">${t.w}<span class="mu">–${t.l}</span></div><div class="form-pct ${pct>=60?'good':pct<=40?'bad':''}">${pct}%</div></div>`;
+  const show=_calSel?(byDay.get(_calSel)||[]):rs;
+  const groups=new Map();
+  for(const r of show){const k=resKey(r.date);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}
+  const list=[...groups.keys()].sort((a,b)=>b.localeCompare(a)).map(k=>{
+    const label=new Date(groups.get(k)[0].date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+    return `<div class="dayhead"><b>${esc(label)}</b><small class="mu">${groups.get(k).length} game${groups.get(k).length>1?'s':''}</small></div><div class="grid g2">${groups.get(k).map(gameCard).join('')}</div>`;
   }).join('');
-  const rows=results.map(r=>{
-    const h=r.home,a=r.away;
-    const d=r.date?new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
-    return `<tr><td class="n mu">${d}</td><td class="${h&&h.winner?'win':''}">${h?esc(h.name):''}</td><td class="n b">${h&&h.score!==''?h.score:'–'} – ${a&&a.score!==''?a.score:'–'}</td><td class="${a&&a.winner?'win':''}">${a?esc(a.name):''}</td></tr>`;
-  }).join('');
-  v.innerHTML=`<div class="sec"><h2>Results Archive</h2><small>${results.length} final games · auto-archived for trend analysis</small></div>
-    <div class="sec"><h2>Team Form</h2><small>W–L from archived results</small></div><div class="form-grid">${formCards}</div>
-    <div class="sec"><h2>Games</h2></div>
-    <div class="stbl"><table class="sortable"><thead><tr><th class="n">Date</th><th>Home</th><th class="n">Score</th><th>Away</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  v.innerHTML=`<div class="sec"><h2>Results Archive</h2><small>${rs.length} final games</small></div>
+    <div class="card calcard">
+      <div class="cal-head"><button class="cal-nav" data-n="-1">‹</button><div class="cal-title">${esc(mName)}</div><button class="cal-nav" data-n="1">›</button></div>
+      <div class="cal-week"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="cal-grid">${cells}</div>
+      <div class="cal-foot"><button class="cal-all${_calSel?'':' on'}">All results</button>${_calSel?`<span class="mu sm">showing ${esc(_calSel)}</span>`:''}</div>
+    </div>
+    ${list||'<div class="card"><p class="mu">No games on this date.</p></div>'}`;
+  v.querySelectorAll('.cal-nav').forEach(b=>b.addEventListener('click',()=>{_calM+=Number(b.dataset.n);if(_calM<0){_calM=11;_calY--}else if(_calM>11){_calM=0;_calY++}drawResults(v,rs);}));
+  v.querySelectorAll('.cal-day.has').forEach(d=>d.addEventListener('click',()=>{_calSel=d.dataset.d;drawResults(v,rs);}));
+  const a=v.querySelector('.cal-all');if(a)a.addEventListener('click',()=>{_calSel='';drawResults(v,rs);});
 }
 
 // ---------- News ----------
