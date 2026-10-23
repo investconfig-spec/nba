@@ -508,6 +508,22 @@ async function computePillars() {
     });
   }
 
+  // ---- normalize each pillar so its top-4 (by sort key) sum equals the target ----
+  const PILLAR_TARGET = { stamina: 600, sharpness: 3, speed: 25, tempoGrip: 300 };
+  const PILLAR_SORT_KEY = { stamina: 'reb', sharpness: 'ast', efficiency: 'pts', speed: 'tsPct', tempoGrip: 'tempoGrip' };
+  const normalization = {};
+  for (const pillar of Object.keys(PILLAR_SORT_KEY)) {
+    const target = PILLAR_TARGET[pillar];
+    if (!target) continue; // pillar without a target (e.g. efficiency) stays raw
+    const key = PILLAR_SORT_KEY[pillar];
+    const top4 = [...rows].sort((a, b) => (b[key] || 0) - (a[key] || 0)).slice(0, 4);
+    const sum = top4.reduce((s, x) => s + (x[pillar] != null ? x[pillar] : 0), 0);
+    const factor = sum > 0 ? target / sum : null;
+    if (factor == null) continue;
+    for (const x of rows) if (x[pillar] != null) x[pillar] = x[pillar] * factor;
+    normalization[pillar] = { target, sortKey: key, top4Sum: +sum.toFixed(3), factor };
+  }
+
   // round pillar values for display
   for (const x of rows) for (const k of ['stamina', 'sharpness', 'efficiency', 'speed', 'tempoGrip'])
     if (x[k] != null && Number.isFinite(x[k])) x[k] = +x[k].toFixed(3);
@@ -522,7 +538,7 @@ async function computePillars() {
   [...rows].sort((a, b) => (b.tempoGrip || -Infinity) - (a.tempoGrip || -Infinity)).forEach((x, i) => { x.rank = i + 1; });
   for (const x of rows) x.top4 = Object.keys(top4).filter(p => top4[p].includes(x.abbr));
 
-  const result = { generated: new Date().toISOString(), top4, teams: rows };
+  const result = { generated: new Date().toISOString(), top4, normalization, teams: rows };
   upsertStaging.run('pillars', 'pillars', JSON.stringify(result), 200, new Date().toISOString());
   return result;
 }

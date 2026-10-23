@@ -310,7 +310,7 @@ const PCOLS_P=[
   {k:'stamina',label:'Stamina',fmt:'big'},{k:'sharpness',label:'Sharpness',fmt:'big'},
   {k:'efficiency',label:'Efficiency',fmt:'big'},{k:'speed',label:'Speed',fmt:'big'},{k:'tempoGrip',label:'Tempo Grip',fmt:'big'},
 ];
-const fmtBig=n=>n==null?'–':Number(n).toLocaleString('en-US',{maximumFractionDigits:2});
+const fmtBig=n=>n==null?'–':Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
 function pvalP(t,k){return k==='name'?t.name:(t[k]!=null?t[k]:null);}
 function setSortP(k){if(PILSORT.k===k){PILSORT.dir=-PILSORT.dir}else{PILSORT.k=k;PILSORT.dir=(k==='name')?1:-1}drawPillars()}
 async function renderPillars(){
