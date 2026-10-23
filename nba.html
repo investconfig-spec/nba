@@ -38,6 +38,20 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .grow.win .nm{color:#fff}.grow.win .sc{color:var(--acc)}
 .gfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;padding-top:8px;border-top:1px solid var(--ln);color:var(--mu);font-size:11.5px}
 .gactions{display:flex;gap:6px;margin-top:9px}.gbtn{flex:1;padding:6px 4px;background:var(--p2);border:1px solid var(--ln);border-radius:6px;color:var(--tx);font-size:11px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s}.gbtn:hover{border-color:var(--acc);color:var(--acc)}
+.gdetail{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--ln)}
+.gdetail.open{display:block}
+.gdetail-head{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;color:var(--tx)}
+.gdetail-inner{display:flex;flex-direction:column;gap:2px}
+.hs{width:32px;height:32px;border-radius:50%;object-fit:cover;object-position:top;background:#1e1c24;flex:none;border:2px solid var(--ln);display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--mu);font-size:11px;overflow:hidden}
+.tp5-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tp5-team{min-width:0}
+.tp5-h{font-weight:700;font-size:11px;margin-bottom:6px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-bottom:4px;border-bottom:1px solid var(--ln)}
+.tp5-row{display:flex;align-items:center;gap:9px;padding:4px 0}
+.tp5-info{flex:1;min-width:0}
+.tp5-nm{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp5-sub{color:var(--mu);font-size:10px}
+.tp5-sc{font:700 15px Impact,'Arial Narrow',sans-serif;color:var(--acc);font-variant-numeric:tabular-nums}
+@media(max-width:520px){.tp5-grid{grid-template-columns:1fr}}
 .stbl{overflow-x:auto}.stbl table{min-width:520px}
 .tlogo{width:22px;height:22px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#1e1c24;margin-right:7px}
 .tname{display:flex;align-items:center}
@@ -123,7 +137,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 "use strict";
 if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
 
-const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['matchup','Matchup'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
+const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
 let TAB='dash';
 const DATA={};
 
@@ -143,10 +157,10 @@ function gameCard(g){
   const detail=st==='scheduled'?fmtTime(g.date):(g.statusDetail||'');
   const row=(t)=>{const w=t&&t.winner?' win':'';return `<div class="grow${w}">${img(t&&t.logo,'lg',t&&t.name)}<span class="nm">${esc(t&&t.name||'')}</span><span class="rec">${esc(t&&t.record||'')}</span><span class="sc">${esc(t&&t.score!==''?t.score:'–')}</span></div>`};
   const ok=g.home&&g.home.abbr&&g.away&&g.away.abbr;
-  const matchBtn=(st==='scheduled'&&ok)?`<button class="gbtn" onclick="openMatchup('${esc(g.home.abbr)}','${esc(g.away.abbr)}')">Match Up Metrics</button>`:'';
-  const top5Btn=ok?`<button class="gbtn" onclick="openTop5('${esc(g.home.abbr)}','${esc(g.home.name)}','${esc(g.away.abbr)}','${esc(g.away.name)}')">Top 5 Players</button>`:'';
+  const matchBtn=(st==='scheduled'&&ok)?`<button class="gbtn" onclick="toggleMatchup('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.away.abbr)}')">Match Up Metrics</button>`:'';
+  const top5Btn=ok?`<button class="gbtn" onclick="toggleTop5('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.home.name)}','${esc(g.away.abbr)}','${esc(g.away.name)}')">Top 5 Players</button>`:'';
   const actions=(matchBtn||top5Btn)?`<div class="gactions">${matchBtn}${top5Btn}</div>`:'';
-  return `<div class="gcard" data-game="${esc(g.id)}"><div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>${row(g.home)}${row(g.away)}${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}${actions}</div>`;
+  return `<div class="gcard" data-game="${esc(g.id)}"><div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>${row(g.home)}${row(g.away)}${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}${actions}<div class="gdetail"></div></div>`;
 }
 async function renderDash(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading scoreboard…</div>';
@@ -163,26 +177,21 @@ async function renderDash(){
   v.innerHTML=html.join('')||'<div class="loading">No games found.</div>';
 }
 
-function openMatchup(a,b){MATCH_A=a;MATCH_B=b;go('matchup');}
-async function openTop5(ha,hn,aa,an){
-  const m=$('#modal');
-  m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="loading">Loading players…</div></div></div>`;
-  const {data}=await api('/api/players');
-  if(data.error){m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button><div class="err">Players unavailable: ${esc(data.error||'')}</div></div></div>`;return}
-  const players=data.players||[];
-  const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
-  const topFor=abbr=>players.filter(p=>(p.teamShortName||'').toUpperCase()===(abbr||'').toUpperCase())
-    .map(p=>({...p,combo:n(p.stats&&p.stats.tsPct)+n(p.stats&&p.stats.avgPoints)}))
-    .sort((a,b)=>b.combo-a.combo).slice(0,5);
-  const render=(abbr,name)=>{
-    const top=topFor(abbr);const logo=(top[0]&&top[0].logo)||'';
-    const rows=top.map((p,i)=>`<tr><td class="n">${i+1}</td><td>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:''}${esc(p.name||'')}</td><td class="n">${n(p.stats&&p.stats.avgPoints).toFixed(1)}</td><td class="n">${p.stats&&p.stats.tsPct!=null?Number(p.stats.tsPct).toFixed(1)+'%':'–'}</td><td class="n"><b>${p.combo.toFixed(1)}</b></td></tr>`).join('');
-    return `<div class="bxteam"><h4>${img(logo,'lg',name)} ${esc(name)}</h4><div class="stbl"><table class="sortable"><thead><tr><th class="n">#</th><th>Player</th><th class="n">PTS</th><th class="n">TS%</th><th class="n">TS%+PTS</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="mu">No players yet</td></tr>'}</tbody></table></div></div>`;
-  };
-  m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button>
-    <div class="sec" style="margin-top:0"><h2>Top 5 Players · TS% + PTS</h2><small>highest 5 in each team</small></div>
-    <div class="bxteams">${render(ha,hn)}${render(aa,an)}</div>
-  </div></div>`;
+function gdetail(gid){return document.querySelector(`.gcard[data-game="${gid}"] .gdetail`);}
+async function toggleMatchup(gid,ha,aa){
+  const el=gdetail(gid); if(!el)return;
+  if(el.dataset.mode==='matchup'){el.innerHTML='';el.dataset.mode='';el.classList.remove('open');return;}
+  el.classList.add('open');el.dataset.mode='matchup';el.innerHTML='<div class="loading">Loading matchup…</div>';
+  const teams=await getPillars();
+  const A=teams.find(t=>t.abbr===ha), B=teams.find(t=>t.abbr===aa);
+  el.innerHTML=(A&&B)?matchupBarsHTML(A,B):'<div class="err">Matchup data unavailable.</div>';
+}
+async function toggleTop5(gid,ha,hn,aa,an){
+  const el=gdetail(gid); if(!el)return;
+  if(el.dataset.mode==='top5'){el.innerHTML='';el.dataset.mode='';el.classList.remove('open');return;}
+  el.classList.add('open');el.dataset.mode='top5';el.innerHTML='<div class="loading">Loading players…</div>';
+  const players=await getPlayers();
+  el.innerHTML=top5HTML(players,ha,hn,aa,an);
 }
 
 // ---------- box score modal ----------
@@ -342,27 +351,13 @@ async function renderLeaders(){
     ${rows||'<div class="loading">No data.</div>'}`;
 }
 
-// ---------- Matchup (Hidden Markov Regression pillars — 2-team comparison) ----------
-let PILLARS=[], PTOP4={}, MATCH_A='', MATCH_B='';
+// ---------- Matchup + Top-5 helpers (inline MMA comparison inside game cards) ----------
 const PILLAR_KEYS=['stamina','sharpness','efficiency','speed','tempoGrip'];
 const PILLAR_NAMES={stamina:'Stamina',sharpness:'Sharpness',efficiency:'Efficiency',speed:'Speed',tempoGrip:'Tempo Grip'};
-async function renderMatchup(){
-  const v=$('#view');v.innerHTML='<div class="loading">Loading matchup…</div>';
-  const {data}=await api('/api/pillars');
-  if(data.error){v.innerHTML=`<div class="err">Pillars unavailable: ${esc(data.error||'')}</div>`;return}
-  PILLARS=data.teams||[]; PTOP4=data.top4||{};
-  if(!PILLARS.length){v.innerHTML='<div class="err">No team data.</div>';return}
-  if(!MATCH_A||!PILLARS.find(t=>t.abbr===MATCH_A))MATCH_A=PILLARS[0].abbr;
-  if(!MATCH_B||!PILLARS.find(t=>t.abbr===MATCH_B))MATCH_B=(PILLARS[1]||PILLARS[0]).abbr;
-  drawMatchup();
-}
-function drawMatchup(){
-  const v=$('#view');
-  const A=PILLARS.find(t=>t.abbr===MATCH_A)||PILLARS[0];
-  const B=PILLARS.find(t=>t.abbr===MATCH_B)||PILLARS[1]||PILLARS[0];
-  const opts=PILLARS.map(t=>`<option value="${esc(t.abbr)}" ${t.abbr===MATCH_A?'selected':''}>${esc(t.name)}</option>`).join('');
-  const optsB=PILLARS.map(t=>`<option value="${esc(t.abbr)}" ${t.abbr===MATCH_B?'selected':''}>${esc(t.name)}</option>`).join('');
-  const teamBadge=(t,side)=>`<div class="mm-team ${side}">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div class="mm-tn">${esc(t.name)}</div></div>`;
+let _pillars=null, _players=null;
+async function getPillars(){if(_pillars)return _pillars;const {data}=await api('/api/pillars');_pillars=data.teams||[];return _pillars;}
+async function getPlayers(){if(_players)return _players;const {data}=await api('/api/players');_players=data.players||[];return _players;}
+function matchupBarsHTML(A,B){
   const bars=PILLAR_KEYS.map(k=>{
     const va=A?.[k], vb=B?.[k];
     let pa,pb;
@@ -376,10 +371,23 @@ function drawMatchup(){
       <div class="mm-side right"><span class="mm-pct">${Math.round(pb)}%</span><div class="mm-bar"><div class="mm-fill b" style="width:${pb.toFixed(1)}%"></div></div><span class="mm-val">${lb}</span></div>
     </div>`;
   }).join('');
-  v.innerHTML=`<div class="sec"><h2>Team Matchup</h2><small>Hidden Markov Regression · pillar comparison</small></div>
-    <div class="mm-select"><div class="mm-sel"><select onchange="MATCH_A=this.value;drawMatchup()">${opts}</select></div><div class="mm-vs">VS</div><div class="mm-sel"><select onchange="MATCH_B=this.value;drawMatchup()">${optsB}</select></div></div>
-    <div class="mm-head">${teamBadge(A,'left')}<div class="mm-vsbig">VS</div>${teamBadge(B,'right')}</div>
-    <div class="card" style="margin-top:12px">${bars}</div>`;
+  return `<div class="gdetail-head">${A?esc(A.name):''} <span class="mu">vs</span> ${B?esc(B.name):''}</div><div class="gdetail-inner">${bars}</div>`;
+}
+function top5HTML(players,ha,hn,aa,an){
+  const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
+  const topFor=abbr=>players.filter(p=>(p.teamShortName||'').toUpperCase()===(abbr||'').toUpperCase())
+    .map(p=>({...p,combo:n(p.stats&&p.stats.tsPct)+n(p.stats&&p.stats.avgPoints)}))
+    .sort((a,b)=>b.combo-a.combo).slice(0,5);
+  const render=(abbr,name)=>{
+    const top=topFor(abbr);
+    const rows=top.map(p=>`<div class="tp5-row">
+      ${img(p.headshot,'hs',p.name)}
+      <div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div><div class="tp5-sub">PTS ${n(p.stats&&p.stats.avgPoints).toFixed(1)} · TS ${p.stats&&p.stats.tsPct!=null?Number(p.stats.tsPct).toFixed(1)+'%':'–'}</div></div>
+      <div class="tp5-sc">${p.combo.toFixed(1)}</div>
+    </div>`).join('');
+    return `<div class="tp5-team"><div class="tp5-h">${esc(name||abbr)}</div>${rows||'<div class="mu sm">No players yet</div>'}</div>`;
+  };
+  return `<div class="gdetail-head">Top 5 Players <span class="mu">· TS% + PTS</span></div><div class="tp5-grid">${render(ha,hn)}${render(aa,an)}</div>`;
 }
 
 // ---------- News ----------
@@ -425,7 +433,7 @@ async function renderAdmin(){
 
 function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('')}
 function go(t){TAB=t;nav();render()}
-function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,matchup:renderMatchup,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
+function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
 
 document.addEventListener('click',e=>{
   const nb=e.target.closest('#nav button');if(nb){go(nb.dataset.t);return}
