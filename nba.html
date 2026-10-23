@@ -229,14 +229,13 @@ async function renderDash(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading scoreboard…</div>';
   const {data,stale}=await api('/api/scoreboard');
   if(data.error){v.innerHTML=`<div class="err">Scoreboard unavailable: ${esc(data.error||'')}</div>`;return}
-  const live=data.live||[],up=data.upcoming||[],rec=(data.recent||[]).slice(0,30);
+  const live=data.live||[],up=data.upcoming||[];
   const groups=[],byDay=new Map();
   for(const g of up){const k=fmtDay(g.date)||'Upcoming';if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(g)}
   for(const [k,arr] of byDay)groups.push({label:k,games:arr});
   const html=[];
   if(live.length)html.push(`<div class="sec"><h2>Live now</h2><small>${live.length}${stale?' · stale':''}</small></div><div class="grid g2">${live.map(gameCard).join('')}</div>`);
   for(const grp of groups)html.push(`<div class="dayhead"><b>${esc(grp.label)}</b><small class="mu">${grp.games.length} game${grp.games.length>1?'s':''}</small></div><div class="grid g2">${grp.games.map(gameCard).join('')}</div>`);
-  if(rec.length)html.push(`<div class="sec"><h2>Recent results</h2></div><div class="grid g2">${rec.map(gameCard).join('')}</div>`);
   v.innerHTML=html.join('')||'<div class="loading">No games found.</div>';
 }
 
