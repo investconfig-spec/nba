@@ -29,7 +29,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 @keyframes blink{50%{opacity:.35}}
 .av{width:34px;height:34px;border-radius:50%;object-fit:contain;background:#1e1c24;flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--mu);font-size:11px;overflow:hidden}
 .lg{width:34px;height:34px;border-radius:50%;object-fit:contain;background:#1e1c24;flex:none}
-.gcard{background:var(--p);border:1px solid var(--ln);border-radius:10px;padding:12px;display:flex;flex-direction:column;cursor:pointer;transition:border-color .15s}.gcard:hover{border-color:var(--acc)}
+.gcard{background:var(--p);border:1px solid var(--ln);border-radius:10px;padding:12px;display:flex;flex-direction:column;transition:border-color .15s}.gcard:hover{border-color:var(--acc)}
 .gtop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.gtop .ev{color:var(--mu);font-size:11.5px}
 .grow{display:flex;align-items:center;gap:10px;padding:3px 0}
 .grow .nm{flex:1;min-width:0;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -140,6 +140,11 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-side.left .mm-pct{text-align:right}.mm-side.right .mm-pct{text-align:left}
 .mm-val{min-width:48px;font-size:11px;color:var(--mu);font-variant-numeric:tabular-nums}
 .mm-side.left .mm-val{text-align:right}.mm-side.right .mm-val{text-align:left}
+.mm-vs-head{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.mm-spread{font:700 12px "Segoe UI",system-ui,Arial,sans-serif;background:var(--p2);border:1px solid var(--ln);border-radius:6px;padding:3px 8px;white-space:nowrap;color:var(--tx);font-variant-numeric:tabular-nums}
+.mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx)}
+.mm-val.hi{background:rgba(255,105,180,.30);border-radius:4px;padding:1px 5px;color:#ffd7e8;font-weight:700}
 </style></head><body>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
@@ -194,9 +199,11 @@ async function toggleMatchup(gid,ha,aa){
   const el=gdetail(gid); if(!el)return;
   if(el.dataset.mode==='matchup'){el.innerHTML='';el.dataset.mode='';el.classList.remove('open');return;}
   el.classList.add('open');el.dataset.mode='matchup';el.innerHTML='<div class="loading">Loading matchup…</div>';
-  const teams=await getPillars();
+  const [teams,odds]=await Promise.all([getPillars(),getOdds()]);
   const A=teams.find(t=>t.abbr===ha), B=teams.find(t=>t.abbr===aa);
-  el.innerHTML=(A&&B)?matchupBarsHTML(A,B):'<div class="err">Matchup data unavailable.</div>';
+  if(!A||!B){el.innerHTML='<div class="err">Matchup data unavailable.</div>';return;}
+  const sp=spreadFor(odds,A.name,B.name);
+  el.innerHTML=matchupBarsHTML(A,B,sp.h,sp.a);
 }
 async function toggleTop5(gid,ha,hn,aa,an){
   const el=gdetail(gid); if(!el)return;
@@ -366,10 +373,25 @@ async function renderLeaders(){
 // ---------- Matchup + Top-5 helpers (inline MMA comparison inside game cards) ----------
 const PILLAR_KEYS=['stamina','sharpness','efficiency','speed','tempoGrip'];
 const PILLAR_NAMES={stamina:'Stamina',sharpness:'Sharpness',efficiency:'Efficiency',speed:'Speed',tempoGrip:'Tempo Grip'};
-let _pillars=null, _players=null;
+let _pillars=null, _players=null, _odds=null;
 async function getPillars(){if(_pillars)return _pillars;const {data}=await api('/api/pillars');_pillars=data.teams||[];return _pillars;}
 async function getPlayers(){if(_players)return _players;const {data}=await api('/api/players');_players=data.players||[];return _players;}
-function matchupBarsHTML(A,B){
+async function getOdds(){if(_odds)return _odds;const {data}=await api('/api/odds');_odds=Array.isArray(data)?data:[];return _odds;}
+function normName(n){return (n||'').replace(/^Los Angeles\b/,'LA').trim();}
+function spreadFor(odds,homeName,awayName){
+  const g=odds.find(x=>(normName(x.home_team)===normName(homeName)&&normName(x.away_team)===normName(awayName))||(normName(x.home_team)===normName(awayName)&&normName(x.away_team)===normName(homeName)));
+  if(!g)return {h:null,a:null};
+  const bk=(g.bookmakers||[])[0]||{};
+  const sp=((bk.markets||[]).find(x=>x.key==='spreads')||{}).outcomes||[];
+  const h=sp.find(o=>normName(o.name)===normName(homeName))||null;
+  const a=sp.find(o=>normName(o.name)===normName(awayName))||null;
+  return {h,a};
+}
+function spreadStr(o){if(!o||o.point==null)return null;const p=o.point>0?'+'+o.point:String(o.point);const px=o.price!=null?Number(o.price).toFixed(2):'';return p+'@'+px;}
+function matchupBarsHTML(A,B,hSp,aSp){
+  const hS=spreadStr(hSp), aS=spreadStr(aSp);
+  const hChip=hS?`<span class="mm-spread">(H${esc(hS)})</span>`:'';
+  const aChip=aS?`<span class="mm-spread">(A${esc(aS)})</span>`:'';
   const bars=PILLAR_KEYS.map(k=>{
     const va=A?.[k], vb=B?.[k];
     let pa,pb;
@@ -377,13 +399,14 @@ function matchupBarsHTML(A,B){
     else{const na=va==null?0:va, nb=vb==null?0:vb; const tot=na+nb; pa=tot>0?na/tot*100:50; pb=100-pa;}
     const la=va==null?'–':Number(va).toFixed(2);
     const lb=vb==null?'–':Number(vb).toFixed(2);
+    const hiA=va!=null&&vb!=null&&va>vb, hiB=va!=null&&vb!=null&&vb>va;
     return `<div class="mm-row">
-      <div class="mm-side left"><span class="mm-val">${la}</span><div class="mm-bar"><div class="mm-fill a" style="width:${pa.toFixed(1)}%"></div></div><span class="mm-pct">${Math.round(pa)}%</span></div>
+      <div class="mm-side left"><span class="mm-val${hiA?' hi':''}">${la}</span><div class="mm-bar"><div class="mm-fill a" style="width:${pa.toFixed(1)}%"></div></div><span class="mm-pct">${Math.round(pa)}%</span></div>
       <div class="mm-label">${PILLAR_NAMES[k]}</div>
-      <div class="mm-side right"><span class="mm-pct">${Math.round(pb)}%</span><div class="mm-bar"><div class="mm-fill b" style="width:${pb.toFixed(1)}%"></div></div><span class="mm-val">${lb}</span></div>
+      <div class="mm-side right"><span class="mm-pct">${Math.round(pb)}%</span><div class="mm-bar"><div class="mm-fill b" style="width:${pb.toFixed(1)}%"></div></div><span class="mm-val${hiB?' hi':''}">${lb}</span></div>
     </div>`;
   }).join('');
-  return `<div class="gdetail-head">${A?esc(A.name):''} <span class="mu">vs</span> ${B?esc(B.name):''}</div><div class="gdetail-inner">${bars}</div>`;
+  return `<div class="mm-vs-head"><div class="mm-vs-name">${A?esc(A.name):''} <span class="mu">vs</span> ${B?esc(B.name):''}</div><div class="mm-vs-odds">${hChip}${aChip}</div></div><div class="gdetail-inner">${bars}</div>`;
 }
 function top5HTML(players,ha,hn,aa,an){
   const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
@@ -491,7 +514,6 @@ function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,players:
 
 document.addEventListener('click',e=>{
   const nb=e.target.closest('#nav button');if(nb){go(nb.dataset.t);return}
-  const gc=e.target.closest('.gcard');if(gc){if(e.target.closest('.gbtn'))return;openBox(gc.dataset.game);return}
   const tc=e.target.closest('.tcard');if(tc){openTeam(tc.dataset.team);return}
 });
 
