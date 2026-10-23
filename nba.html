@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NBA Command Hub</title>
+<style>
+:root{--bg:#0a0a0c;--p:#141318;--p2:#1a1920;--ln:#2b2931;--tx:#edeef2;--mu:#8e8a96;--acc:#ff6b00;--acc2:#c94e00;--blu:#4a90e2;--grn:#2ecc71;--gold:#c8a24a;--red:#d20a0a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 "Segoe UI",system-ui,Arial,sans-serif}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+h1,h2,h3{font-family:Impact,"Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.04em;font-weight:400;margin:0}
+header{position:sticky;top:0;z-index:20;background:#0c0c0fee;backdrop-filter:blur(8px);border-bottom:2px solid var(--acc2)}
+.hd{max-width:1280px;margin:auto;display:flex;align-items:center;gap:18px;padding:10px 16px;flex-wrap:wrap}
+.logo{font:26px Impact,sans-serif;letter-spacing:.06em}.logo b{color:var(--acc)}
+nav{display:flex;gap:2px;flex-wrap:wrap}nav button{background:none;border:0;color:var(--mu);padding:8px 12px;font:600 13px inherit;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on,nav button:hover{color:#fff;border-color:var(--acc)}
+.chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.chip{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:3px 10px;font-size:12px;color:var(--mu)}.chip b{color:var(--tx)}
+main{max-width:1280px;margin:auto;padding:18px 16px 60px}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.card{background:var(--p);border:1px solid var(--ln);border-radius:10px;padding:14px}
+.card h3{font-size:17px;margin-bottom:10px;border-left:4px solid var(--acc2);padding-left:8px}
+.sec{margin:22px 0 10px;display:flex;align-items:center;gap:10px}.sec h2{font-size:24px}.sec small{color:var(--mu)}
+button.b,select,input{background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px 10px;font:inherit}
+button.b{cursor:pointer;font-weight:600}button.b:hover{border-color:var(--acc)}button.r{background:var(--acc2);border-color:var(--acc2);color:#fff}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.mu{color:var(--mu)}.sm{font-size:12px}.pill{display:inline-block;background:var(--p2);border:1px solid var(--ln);border-radius:4px;padding:1px 6px;font-size:11px;color:var(--mu);margin-right:4px}
+.ok{color:var(--grn)}.bad{color:#ff5a5a}.warn{color:var(--gold)}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid var(--ln);text-align:left}th{color:var(--mu);font-weight:600;font-size:12px;text-transform:uppercase}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.loading{color:var(--mu);padding:20px;text-align:center}
+.livepill{display:inline-block;background:#7a1f1f;border:1px solid var(--red);color:#ff8080;border-radius:4px;padding:1px 7px;font:700 11px Impact,"Arial Narrow",sans-serif;letter-spacing:.05em;animation:blink 1.2s steps(2,start) infinite}
+@keyframes blink{50%{opacity:.35}}
+/* game card */
+.gcard{background:var(--p);border:1px solid var(--ln);border-radius:10px;padding:12px;display:flex;flex-direction:column}
+.gtop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.gtop .ev{color:var(--mu);font-size:11.5px}
+.grow{display:flex;align-items:center;gap:10px;padding:3px 0}
+.grow .lg{width:34px;height:34px;border-radius:50%;object-fit:contain;background:#1e1c24;flex:none}
+.grow .nm{flex:1;min-width:0;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grow .sc{font:700 22px Impact,'Arial Narrow',sans-serif;min-width:22px;text-align:center}
+.grow .rec{color:var(--mu);font-size:11px;white-space:nowrap}
+.grow.win .nm{color:#fff}.grow.win .sc{color:var(--acc)}
+.gfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;padding-top:8px;border-top:1px solid var(--ln);color:var(--mu);font-size:11.5px}
+/* standings */
+.stbl{overflow-x:auto}.stbl table{min-width:520px}
+.tlogo{width:22px;height:22px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#1e1c24;margin-right:7px}
+.tname{display:flex;align-items:center}
+.pb{height:8px;border-radius:4px;background:#2a2832;overflow:hidden;display:flex}.pb i{display:block;height:100%}
+.pb .w{background:var(--acc)}.pb .l{background:#4a4852}
+/* news */
+.news{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--ln)}.news img{width:120px;height:76px;object-fit:cover;border-radius:6px;flex:none;background:#1e1c24}
+.news .tt{font-weight:700;font-size:14px;color:var(--tx);line-height:1.3}.news .ds{color:var(--mu);font-size:11px;margin-top:3px}
+/* odds */
+.obk{color:var(--mu);font-size:11px}
+.odds-grid{display:grid;gap:8px}
+.odds-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:8px 10px;background:var(--p);border:1px solid var(--ln);border-radius:8px}
+.odds-cell{text-align:center}.odds-cell .v{font:700 15px Impact,'Arial Narrow',sans-serif}.odds-cell .k{color:var(--mu);font-size:10px;text-transform:uppercase;display:block}
+.err{background:#3a1212;border:1px solid #7a1f1f;border-radius:8px;padding:10px 12px;margin:8px 0}
+pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px;overflow:auto;max-height:340px;font-size:12px}
+.dayhead{display:flex;align-items:center;gap:10px;margin:20px 0 9px;padding-left:10px;border-left:4px solid var(--acc2);flex-wrap:wrap}
+.dayhead b{font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:17px;font-weight:400}
+</style></head><body>
+<header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
+<nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
+<main id="view"><div class="loading">Loading…</div></main>
+<div id="modal"></div>
+<script>
+"use strict";
+if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
+
+const TABS=[['dash','Dashboard'],['stand','Standings'],['news','News'],['odds','Odds'],['admin','Admin']];
+let TAB='dash';
+let DATA={scoreboard:null,standings:null,news:null,odds:null,health:null};
+
+const $=s=>document.querySelector(s);
+const api=async p=>{const r=await fetch(p);const j=await r.json().catch(()=>({}));return {data:j,stale:r.headers.get('X-Stale')==='1',cache:r.headers.get('X-Cache')};};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function initials(name){return String(name||'').split(/\s+/).map(w=>w[0]||'').slice(0,3).join('').toUpperCase()}
+function logo(g,cls){const l=g&&g.logo;if(l)return `<img class="${cls||'lg'}" src="${esc(l)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;av ${cls||'lg'}&quot;>${esc(initials(g&&g.name))}</span>'">`;return `<span class="av ${cls||'lg'}">${esc(initials(g&&g.name))}</span>`}
+function fmtDay(iso){try{const d=new Date(iso);return d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}catch{return iso}}
+function fmtTime(iso){try{const d=new Date(iso);return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}catch{return ''}}
+
+function gameCard(g){
+  const st=g.status;
+  const pill=st==='live'?'<span class="livepill">LIVE</span>':st==='final'?'<span class="pill">FINAL</span>':'<span class="pill">UPCOMING</span>';
+  const clock=st==='live'&&g.clock?(' · Q'+g.period+' '+esc(g.clock)):(st==='live'&&g.period?(' · Q'+g.period):'');
+  const detail=st==='scheduled'?fmtTime(g.date):(g.statusDetail||'');
+  const home=g.home,away=g.away;
+  const row=(t)=>{const w=t&&t.winner?' win':'';return `<div class="grow${w}">${logo(t)}<span class="nm">${esc(t&&t.name||'')}</span><span class="rec">${esc(t&&t.record||'')}</span><span class="sc">${esc(t&&t.score!==''?t.score:'–')}</span></div>`};
+  return `<div class="gcard">
+    <div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>
+    ${row(home)}${row(away)}
+    ${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}
+  </div>`;
+}
+
+async function renderDash(){
+  const v=$('#view');
+  v.innerHTML='<div class="loading">Loading scoreboard…</div>';
+  const {data,stale}=await api('/api/scoreboard');
+  DATA.scoreboard=data;
+  if(data.error){v.innerHTML=`<div class="err">Scoreboard unavailable: ${esc(data.error||'')}</div>`;return}
+  const live=data.live||[],up=data.upcoming||[],rec=(data.recent||[]).slice(0,30);
+  // group upcoming games by LOCAL date label (not UTC), so a day isn't split across headers
+  const groups=[];
+  const byDay=new Map();
+  for(const g of up){const k=fmtDay(g.date)||'Upcoming';if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(g)}
+  for(const [k,arr] of byDay){groups.push({label:k,games:arr})}
+  const html=[]
+  if(live.length){html.push(`<div class="sec"><h2>Live now</h2><small>${live.length} game${live.length>1?'s':''}${stale?' · stale':''}</small></div><div class="grid g2">${live.map(gameCard).join('')}</div>`)}
+  for(const grp of groups){html.push(`<div class="dayhead"><b>${esc(grp.label)}</b><small class="mu">${grp.games.length} game${grp.games.length>1?'s':''}</small></div><div class="grid g2">${grp.games.map(gameCard).join('')}</div>`)}
+  if(rec.length){html.push(`<div class="sec"><h2>Recent results</h2></div><div class="grid g2">${rec.map(gameCard).join('')}</div>`)}
+  v.innerHTML=html.join('')||'<div class="loading">No games found.</div>';
+}
+
+async function renderStand(){
+  const v=$('#view');
+  v.innerHTML='<div class="loading">Loading standings…</div>';
+  const {data,stale}=await api('/api/standings');
+  DATA.standings=data;
+  if(data.error){v.innerHTML=`<div class="err">Standings unavailable: ${esc(data.error||'')}</div>`;return}
+  const cols=['wins','losses','winPercent','gamesBehind','streak','pointsFor','pointsAgainst','pointDifferential'];
+  const lab={wins:'W',losses:'L',winPercent:'PCT',gamesBehind:'GB',streak:'Streak',pointsFor:'PF',pointsAgainst:'PA',pointDifferential:'DIFF'};
+  const html=[];
+  for(const grp of (data.groups||[])){
+    const rows=(grp.entries||[]).map(en=>{
+      const t=en.team||{};
+      const cells=cols.map(c=>{const v=en.stats&&en.stats[c];return `<td class="n">${esc(v!=null?v:'–')}</td>`}).join('');
+      return `<tr><td class="n">${esc(en.stats&&en.stats.playoffSeed||'–')}</td>
+        <td><span class="tname">${t.logo?`<img class="tlogo" src="${esc(t.logo)}" onerror="this.style.display='none'">`:''}${esc(t.name||'')}</span></td>${cells}</tr>`;
+    }).join('');
+    html.push(`<div class="card stbl"><h3>${esc(grp.name||'')}</h3><table><thead><tr><th class="n">#</th><th>Team</th>${cols.map(c=>`<th class="n">${lab[c]}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`);
+  }
+  v.innerHTML=`<div class="sec"><h2>Standings</h2><small>${esc(data.season||'')}${stale?' · stale':''}</small></div>${html.join('')}`;
+}
+
+async function renderNews(){
+  const v=$('#view');
+  v.innerHTML='<div class="loading">Loading news…</div>';
+  const {data,stale}=await api('/api/news');
+  DATA.news=data;
+  const arts=(data&&data.articles)||[];
+  const rows=arts.map(a=>{
+    const img=(a.images&&a.images[0]&&a.images[0].url)||'';
+    const dt=a.published?new Date(a.published).toLocaleString():'';
+    const body=(a.description||a.headline||'').slice(0,180);
+    const href=(a.links&&(a.links.web?a.links.web.href:a.links.href))||'#';
+    return `<a class="news" href="${esc(href)}" target="_blank" rel="noreferrer">
+      ${img?`<img src="${esc(img)}" alt="" loading="lazy" onerror="this.style.display='none'">`:''}
+      <div><div class="tt">${esc(a.headline||'')}</div>${body?`<div class="mu sm">${esc(body)}</div>`:''}<div class="ds">${esc(dt)}</div></div>
+    </a>`;
+  }).join('');
+  v.innerHTML=`<div class="sec"><h2>NBA News</h2><small>${arts.length} stories${stale?' · stale':''}</small></div>${rows||'<div class="loading">No news.</div>'}`;
+}
+
+async function renderOdds(){
+  const v=$('#view');
+  v.innerHTML='<div class="loading">Loading odds…</div>';
+  const {data,stale}=await api('/api/odds');
+  DATA.odds=data;
+  const games=Array.isArray(data)?data:[];
+  const rows=games.map(g=>{
+    const bk=(g.bookmakers&&g.bookmakers[0])||{};
+    const mk=(m)=>((bk.markets||[]).find(x=>x.key===m)||{}).outcomes||[];
+    const h2h=mk('h2h'),spread=mk('spreads'),total=mk('totals');
+    const h=h2h.find(o=>o.name===g.home_team),a=h2h.find(o=>o.name===g.away_team);
+    const sp=spread[0]||{},to=total[0]||{};
+    const fmtOdds=o=>o&&o.price!=null?Number(o.price).toFixed(2):'–';
+    const fmtPts=o=>o&&o.point!=null?(o.point>0?'+':'')+o.point:'–';
+    const fmtTot=o=>o&&o.point!=null?String(o.point):'–';
+    return `<div class="odds-row">
+      <div><b>${esc(g.away_team)}</b> <span class="mu">@</span> <b>${esc(g.home_team)}</b><div class="obk">${esc(bk.title||'')} · ${g.commence_time?new Date(g.commence_time).toLocaleString():''}</div></div>
+      <div class="odds-cell"><span class="k">Home ML</span><span class="v">${esc(fmtOdds(h))}</span></div>
+      <div class="odds-cell"><span class="k">Away ML</span><span class="v">${esc(fmtOdds(a))}</span></div>
+      <div class="odds-cell"><span class="k">Spread</span><span class="v">${esc(fmtPts(sp))}</span></div>
+      <div class="odds-cell"><span class="k">Total</span><span class="v">${esc(fmtTot(to))}</span></div>
+    </div>`;
+  }).join('');
+  v.innerHTML=`<div class="sec"><h2>NBA Odds</h2><small>${games.length} games${stale?' · stale':''}</small></div><div class="odds-grid">${rows||'<div class="loading">No odds available.</div>'}</div>`;
+}
+
+async function renderAdmin(){
+  const v=$('#view');
+  v.innerHTML='<div class="loading">Loading health…</div>';
+  const h=await api('/api/health');
+  DATA.health=h.data;
+  v.innerHTML=`<div class="sec"><h2>Admin</h2></div>
+    <div class="grid g2">
+      <div class="card"><h3>Health</h3><pre>${esc(JSON.stringify(DATA.health,null,2))}</pre></div>
+      <div class="card"><h3>Cache status</h3>
+        <table><tbody>
+          <tr><td>Scoreboard</td><td class="n">${DATA.scoreboard?DATA.scoreboard.events?.length||'–':'–'}</td></tr>
+          <tr><td>Standings groups</td><td class="n">${DATA.standings?DATA.standings.groups?.length||'–':'–'}</td></tr>
+          <tr><td>News stories</td><td class="n">${DATA.news?DATA.news.articles?.length||'–':'–'}</td></tr>
+          <tr><td>Odds games</td><td class="n">${Array.isArray(DATA.odds)?DATA.odds.length:'–'}</td></tr>
+        </tbody></table>
+        <div class="bar" style="margin-top:12px"><button class="b r" onclick="location.reload()">Reload</button></div>
+      </div>
+    </div>`;
+}
+
+function nav(){
+  $('#nav').innerHTML=TABS.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('');
+}
+function go(t){TAB=t;nav();render()}
+function render(){
+  ({dash:renderDash,stand:renderStand,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();
+}
+
+document.addEventListener('click',e=>{
+  const nb=e.target.closest('#nav button');
+  if(nb){go(nb.dataset.t)}
+});
+
+nav();render();
+</script>
+</body></html>

@@ -1,0 +1,23 @@
+node_modules/
+*.log
+chrome_profile/
+__pycache__/
+dashboard.png
+*.png
+
+# Pre-existing "Hardwood" FastAPI/nba_api scaffold (parallel attempt, different
+# architecture) — kept out of this Node module's repo. See NOTES.md.
+app/
+backend/
+frontend/
+tests/
+.venv/
+.cache/
+.env
+.env.example
+requirements.txt
+requirements-dev.txt
+run.bat
+run.sh
+run-demo.bat
+README.md
