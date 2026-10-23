@@ -237,6 +237,52 @@ async function teams() {
   } catch (e) { return r; }
 }
 
+// ---- box-score fallback: aggregate a team's per-player season stats from played games ----
+// (covers teams/players absent from the byathlete season-stats feed — e.g. right after
+// opening night, when ESPN's per-player stats feed lags the live scoreboard)
+async function teamBoxStats(abbr) {
+  const sb = await scoreboard('');
+  let events = [];
+  try { const d = JSON.parse(sb.payload); events = (d.recent || []).concat(d.live || []); } catch (e) {}
+  const games = events.filter(g => g.home && g.away && (g.home.abbr === abbr || g.away.abbr === abbr));
+  if (!games.length) return {};
+  const agg = {};
+  const n = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+  const split = s => { const p = String(s == null ? '' : s).split('-'); return [n(p[0]), n(p[1])]; };
+  for (const g of games) {
+    const r = await gameSummary(g.id);
+    if (r.status !== 200) continue;
+    let d; try { d = JSON.parse(r.payload); } catch (e) { continue; }
+    for (const pe of (d.players || [])) for (const p of (pe.players || [])) {
+      if (p.didNotPlay) continue;
+      const key = p.name || p.shortName;
+      if (!key) continue;
+      const st = p.stats || {};
+      const fg = split(st.FG), tp = split(st['3PT']), ft = split(st.FT);
+      const a = agg[key] || (agg[key] = { gp: 0, min: 0, pts: 0, reb: 0, ast: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0 });
+      a.gp += 1; a.min += n(st.MIN); a.pts += n(st.PTS); a.reb += n(st.REB); a.ast += n(st.AST);
+      a.fgm += fg[0]; a.fga += fg[1]; a.tpm += tp[0]; a.tpa += tp[1]; a.ftm += ft[0]; a.fta += ft[1];
+    }
+  }
+  const out = {};
+  for (const [key, a] of Object.entries(agg)) {
+    if (!a.gp) continue;
+    const tsDen = 2 * (a.fga + 0.44 * a.fta);
+    out[key] = {
+      gamesPlayed: a.gp,
+      avgMinutes: +(a.min / a.gp).toFixed(1),
+      avgPoints: +(a.pts / a.gp).toFixed(1),
+      avgRebounds: +(a.reb / a.gp).toFixed(1),
+      avgAssists: +(a.ast / a.gp).toFixed(1),
+      fieldGoalPct: a.fga ? +(100 * a.fgm / a.fga).toFixed(1) : null,
+      threePointFieldGoalPct: a.tpa ? +(100 * a.tpm / a.tpa).toFixed(1) : null,
+      freeThrowPct: a.fta ? +(100 * a.ftm / a.fta).toFixed(1) : null,
+      tsPct: tsDen > 0 ? +(100 * a.pts / tsDen).toFixed(1) : null,
+    };
+  }
+  return out;
+}
+
 // ---- team detail: roster + coach + full standings stats + team leaders + per-player stats ----
 async function teamDetail(abbr) {
   const r = await proxied('roster', 'roster:' + abbr, ESPN + '/teams/' + abbr.toLowerCase() + '/roster');
@@ -260,21 +306,12 @@ async function teamDetail(abbr) {
       } catch (e) {}
     }
 
-    // player stats snapshot (for roster join + team leaders)
+    // per-player season stats from the byathlete snapshot, joined by athlete id
     const psRow = getStaging.get('stats', 'stats');
     let players = [];
     if (psRow) { try { players = parsePlayerStats(psRow.payload); } catch (e) {} }
     const pmap = {};
     for (const p of players) pmap[p.id] = p;
-
-    // team leaders (formulated: top scorer / rebounder / assister on this roster)
-    const teamPlayers = players.filter(p => (p.teamShortName || '').toUpperCase() === (team.abbreviation || '').toUpperCase());
-    const topBy = f => teamPlayers.reduce((best, p) => {
-      const v = num(p.stats && p.stats[f]);
-      return (!best || v > best.v) ? { v, p } : best;
-    }, null);
-    const lPts = topBy('avgPoints'), lReb = topBy('avgRebounds'), lAst = topBy('avgAssists');
-    const lead = (l, f) => l ? { name: l.p.name, headshot: l.p.headshot, val: l.p.stats && l.p.stats[f] } : null;
 
     const athletes = (data.athletes || []).map(a => {
       const ps = pmap[a.id] || {};
@@ -292,12 +329,39 @@ async function teamDetail(abbr) {
       };
     });
 
+    // box-score fallback for players absent from the season-stats feed (fresh/lagged games)
+    if (athletes.some(a => a.stats.gp == null)) {
+      let box = null;
+      try { box = await teamBoxStats(team.abbreviation); } catch (e) {}
+      if (box) for (const a of athletes) {
+        if (a.stats.gp != null) continue;
+        const bs = box[a.name] || box[a.shortName];
+        if (bs) a.stats = {
+          gp: bs.gamesPlayed, min: bs.avgMinutes, pts: bs.avgPoints, reb: bs.avgRebounds,
+          ast: bs.avgAssists, fgPct: bs.fieldGoalPct, threePct: bs.threePointFieldGoalPct,
+          tsPct: bs.tsPct, efgPct: null,
+        };
+      }
+    }
+
+    // team leaders (formulated from merged roster stats — byathlete + box-score fallback)
+    const top = f => athletes.reduce((best, a) => {
+      const v = num(a.stats && a.stats[f]);
+      return (v > 0 && (!best || v > best.v)) ? { v, name: a.name, headshot: a.headshot } : best;
+    }, null);
+    const lPts = top('pts'), lReb = top('reb'), lAst = top('ast');
+    const leaders = {
+      points: lPts ? { name: lPts.name, headshot: lPts.headshot, val: lPts.v } : null,
+      rebounds: lReb ? { name: lReb.name, headshot: lReb.headshot, val: lReb.v } : null,
+      assists: lAst ? { name: lAst.name, headshot: lAst.headshot, val: lAst.v } : null,
+    };
+
     return { payload: JSON.stringify({
       team: { id: team.id, name: team.displayName, abbr: team.abbreviation, logo: team.logo, color: team.color ? '#' + team.color : '' },
       season: team.seasonSummary || '', record: team.recordSummary || '',
       coach: coach.firstName && coach.lastName ? coach.firstName + ' ' + coach.lastName : '',
       standings: st,
-      leaders: { points: lead(lPts, 'avgPoints'), rebounds: lead(lReb, 'avgRebounds'), assists: lead(lAst, 'avgAssists') },
+      leaders,
       roster: athletes, count: athletes.length,
     }), status: 200, stale: 0, cache: 'upstream' };
   } catch (e) { return r; }
