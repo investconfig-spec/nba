@@ -106,10 +106,13 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .leadbox h3{margin-bottom:8px}
 .leadbox .prow{padding:6px 0}
 .leadbox .leadrows .prow:last-child{border-bottom:0}
+.leadbox .lead-extra{display:none}
+.leadbox.open .lead-extra{display:flex}
+.leadbox.open .leadmore-wrap{display:none}
+.leadbox.open{cursor:pointer}
 .leadmore-wrap{display:flex;justify-content:flex-end;margin-top:8px}
 .leadmore{background:var(--p2);border:1px solid var(--ln);color:var(--mu);padding:4px 14px;font:600 11px inherit;border-radius:99px;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}
 .leadmore:hover{color:#fff;border-color:var(--acc)}
-.leadmore-body .prow:last-child{border-bottom:0}
 /* standings 2-col, top 5 + show all */
 .stand-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .stand-grid .standbox h3{margin-bottom:8px}
@@ -173,21 +176,21 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx)}
 .mm-val.hi{background:rgba(255,105,180,.30);border-radius:4px;padding:1px 5px;color:#ffd7e8;font-weight:700}
-/* results archive calendar */
-.calcard{margin-bottom:18px}
-.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-.cal-nav{background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:4px 14px;font:700 18px inherit;line-height:1;cursor:pointer}.cal-nav:hover{border-color:var(--acc);color:var(--acc)}
-.cal-title{font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:16px;color:var(--tx)}
-.cal-week,.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
-.cal-week span{text-align:center;color:var(--mu);font-size:11px;text-transform:uppercase;padding:3px 0}
-.cal-day{position:relative;aspect-ratio:1;min-height:44px;border:1px solid var(--ln);border-radius:8px;background:var(--p2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+/* results archive calendar (compact) */
+.calcard{margin-bottom:18px;padding:12px 14px}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.cal-nav{background:var(--p2);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:0 12px;font:700 15px inherit;line-height:26px;height:26px;cursor:pointer}.cal-nav:hover{border-color:var(--acc);color:var(--acc)}
+.cal-title{font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:14px;color:var(--tx)}
+.cal-week,.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-week span{text-align:center;color:var(--mu);font-size:10px;text-transform:uppercase;padding:1px 0}
+.cal-day{position:relative;height:30px;border:1px solid var(--ln);border-radius:5px;background:var(--p2);display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px}
 .cal-day.blank{background:none;border:0}
 .cal-day.has{cursor:pointer}.cal-day.has:hover{border-color:var(--acc)}
 .cal-day.sel{border-color:var(--acc);background:rgba(255,107,0,.16)}
-.cal-n{font-weight:700;font-size:14px;color:var(--tx)}
-.cal-c{font:700 10px Impact,'Arial Narrow',sans-serif;color:var(--acc);line-height:1}
-.cal-foot{display:flex;align-items:center;gap:10px;margin-top:12px}
-.cal-all{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:4px 14px;color:var(--mu);cursor:pointer;font:600 12px inherit;text-transform:uppercase;letter-spacing:.03em}.cal-all.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+.cal-n{font-weight:600;font-size:12px;color:var(--tx);line-height:1}
+.cal-c{font:700 9px Impact,'Arial Narrow',sans-serif;color:var(--acc);line-height:1;background:rgba(255,107,0,.18);border-radius:99px;padding:1px 5px;min-width:15px;text-align:center}
+.cal-foot{display:flex;align-items:center;gap:10px;margin-top:10px}
+.cal-all{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:3px 14px;color:var(--mu);cursor:pointer;font:600 11px inherit;text-transform:uppercase;letter-spacing:.03em}.cal-all.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
 </style></head><body>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
@@ -411,7 +414,7 @@ function drawPlayers(){
 
 // ---------- Leaders ----------
 const LEADER_CATS=[['points','PPG','avgPoints'],['rebounds','RPG','avgRebounds'],['assists','APG','avgAssists'],['steals','SPG','avgSteals'],['blocks','BPG','avgBlocks']];
-const leadRow=(p,i,field)=>`<div class="prow"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${p.stats&&p.stats[field]!=null?Number(p.stats[field]).toFixed(1):'–'}</span></div>`;
+const leadRow=(p,i,field)=>`<div class="prow${i>=5?' lead-extra':''}"><span class="rk">${i+1}</span>${p.headshot?`<img class="hd" src="${esc(p.headshot)}" onerror="this.style.display='none'">`:'<span class="hd av"></span>'}<span class="nm">${esc(p.name)}</span><span class="tm">${esc(p.teamShortName||p.team||'')}</span><span class="val">${p.stats&&p.stats[field]!=null?Number(p.stats[field]).toFixed(1):'–'}</span></div>`;
 async function renderLeaders(){
   const v=$('#view');
   v.innerHTML='<div class="loading">Loading leaders…</div>';
@@ -419,18 +422,13 @@ async function renderLeaders(){
   const players=(data.players||[]).filter(p=>p&&p.stats);
   const cards=LEADER_CATS.map(([cat,label,field])=>{
     const sorted=players.slice().sort((a,b)=>(Number(b.stats[field])||0)-(Number(a.stats[field])||0));
-    const top5=sorted.slice(0,5), rest=sorted.slice(5,25);
-    return `<div class="card leadbox"><h3>${label}</h3><div class="leadrows">${top5.map((p,i)=>leadRow(p,i,field)).join('')}</div>${rest.length?`<div class="leadmore-wrap"><button class="leadmore" onclick="toggleLead('l_${cat}')">Show more</button></div><div class="leadmore-body" id="l_${cat}" style="display:none">${rest.map((p,i)=>leadRow(p,i+5,field)).join('')}</div>`:''}</div>`;
+    const top25=sorted.slice(0,25);
+    return `<div class="card leadbox" onclick="collapseLead(this)"><h3>${label}</h3><div class="leadrows">${top25.map((p,i)=>leadRow(p,i,field)).join('')}</div>${top25.length>5?`<div class="leadmore-wrap"><button class="leadmore" onclick="event.stopPropagation();openLead(this)">Show more</button></div>`:''}</div>`;
   });
   v.innerHTML=`<div class="sec"><h2>League Leaders</h2><small>Top 5 per category · per game${stale?' · stale':''}</small></div><div class="lead-grid">${cards.join('')}</div>`;
 }
-function toggleLead(id){
-  const el=document.getElementById(id); if(!el)return;
-  const on=el.style.display!=='none';
-  el.style.display=on?'none':'block';
-  const btn=el.closest('.leadbox').querySelector('.leadmore');
-  if(btn)btn.textContent=on?'Show more':'Show less';
-}
+function openLead(btn){const b=btn.closest('.leadbox');if(b)b.classList.add('open');}
+function collapseLead(box){if(box.classList.contains('open'))box.classList.remove('open');}
 
 // ---------- Matchup + Top-5 helpers (inline MMA comparison inside game cards) ----------
 const PILLAR_KEYS=['stamina','sharpness','efficiency','speed','tempoGrip'];
