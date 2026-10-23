@@ -445,12 +445,113 @@ async function gameSummary(eventId) {
   } catch (e) { return r; }
 }
 
+// ---- Hidden Markov Regression team pillars ----
+// 5 formulated team metrics (STAMINA / SHARPNESS / EFFICIENCY / SPEED / TEMPO GRIP) + RANK,
+// computed from per-game team aggregates and persisted into staging (source='pillars').
+// Sort key per pillar maps to the ranking stat used for "top-4 sorted rows".
+const PILLAR_TTL = 6 * 3600 * 1000;
+const PILLAR_SORT = { stamina: 'reb', sharpness: 'ast', efficiency: 'pts', speed: 'tsPct' };
+const PILLAR_LABEL = { stamina: 'Stamina', sharpness: 'Sharpness', efficiency: 'Efficiency', speed: 'Speed', tempoGrip: 'Tempo Grip' };
+
+async function computePillars() {
+  const tRes = await teams();
+  let teamsList = [];
+  try { teamsList = JSON.parse(tRes.payload).teams || []; } catch (e) {}
+  if (!teamsList.length) return null;
+
+  // fetch all team rosters (merged byathlete + box-score fallback) in parallel
+  const details = await Promise.all(teamsList.map(async (t) => {
+    const r = await teamDetail(t.abbr);
+    try { return { t, d: JSON.parse(r.payload) }; } catch (e) { return { t, d: null }; }
+  }));
+
+  const rows = [];
+  for (const { t, d } of details) {
+    if (!d) continue;
+    const roster = (d.roster || []).filter(a => a.stats && num(a.stats.gp) > 0);
+    if (!roster.length) continue;
+
+    const sum = f => roster.reduce((s, a) => s + num(a.stats && a.stats[f]), 0);
+    const pts = sum('pts'), reb = sum('reb'), ast = sum('ast'), min = sum('min');
+    // minutes-weighted averages (shooting %s + age — weighted by minutes played)
+    const minW = f => {
+      let w = 0, tot = 0;
+      for (const a of roster) { const m = num(a.stats && a.stats.min); const v = num(a.stats && a.stats[f]); w += m; tot += m * v; }
+      return w > 0 ? tot / w : null;
+    };
+    const fgPct = minW('fgPct'), threePct = minW('threePct'), tsPct = minW('tsPct');
+    let age = null;
+    { let w = 0, s = 0; for (const a of roster) { const m = num(a.stats && a.stats.min); w += m; s += m * num(a.age); } age = w > 0 ? s / w : null; }
+
+    if (!age || !min) continue;
+
+    // ---- 5 pillars (formulas as specified) ----
+    const stamina = (fgPct != null && age > 0 && min > 0)
+      ? (fgPct * pts / age) * ((ast + 0.23) * 100 / min) : null;
+    const sharpness = (tsPct != null && fgPct > 0 && threePct > 0)
+      ? (tsPct * reb) / (threePct / fgPct) * (ast + 0.213) : null;
+    const efficiency = (age > 0 && min > 0 && tsPct != null)
+      ? ((ast * pts / age) / min) * tsPct : null;
+    const speed = (fgPct > 0 && age > 0)
+      ? (reb * min * (pts / fgPct)) / age : null;
+    const tempoGrip = (stamina != null && sharpness != null && efficiency && speed)
+      ? (stamina * sharpness) / (efficiency * speed) : null;
+
+    rows.push({
+      abbr: t.abbr, name: t.name, logo: t.logo, color: t.color,
+      pts: +pts.toFixed(1), reb: +reb.toFixed(1), ast: +ast.toFixed(1), min: +min.toFixed(1),
+      age: age != null ? +age.toFixed(1) : null,
+      fgPct: fgPct != null ? +fgPct.toFixed(1) : null,
+      threePct: threePct != null ? +threePct.toFixed(1) : null,
+      tsPct: tsPct != null ? +tsPct.toFixed(1) : null,
+      stamina, sharpness, efficiency, speed, tempoGrip,
+    });
+  }
+
+  // round pillar values for display
+  for (const x of rows) for (const k of ['stamina', 'sharpness', 'efficiency', 'speed', 'tempoGrip'])
+    if (x[k] != null && Number.isFinite(x[k])) x[k] = +x[k].toFixed(3);
+
+  // top-4 per pillar (sorted by that pillar's sort key), then assign pillars to teams
+  const top4 = {};
+  for (const [pillar, key] of Object.entries(PILLAR_SORT)) {
+    const sorted = [...rows].sort((a, b) => (b[key] || 0) - (a[key] || 0));
+    top4[pillar] = sorted.slice(0, 4).map(x => x.abbr);
+  }
+  // overall rank by TEMPO GRIP (desc)
+  [...rows].sort((a, b) => (b.tempoGrip || -Infinity) - (a.tempoGrip || -Infinity)).forEach((x, i) => { x.rank = i + 1; });
+  for (const x of rows) x.top4 = Object.keys(top4).filter(p => top4[p].includes(x.abbr));
+
+  const result = { generated: new Date().toISOString(), top4, teams: rows };
+  upsertStaging.run('pillars', 'pillars', JSON.stringify(result), 200, new Date().toISOString());
+  return result;
+}
+
+async function pillars() {
+  const key = 'pillars';
+  const hit = memGet(key, PILLAR_TTL);
+  if (hit) return { payload: hit.payload, status: 200, stale: 0, cache: 'memory' };
+  const staged = getStaging.get('pillars', 'pillars');
+  if (staged && (Date.now() - new Date(staged.fetched_at).getTime()) < PILLAR_TTL) {
+    return { payload: staged.payload, status: 200, stale: 0, cache: 'staging', fetchedAt: staged.fetched_at };
+  }
+  const result = await computePillars();
+  if (!result) {
+    if (staged) return { payload: staged.payload, status: 200, stale: 1, cache: 'staging', fetchedAt: staged.fetched_at };
+    return { payload: JSON.stringify({ error: 'pillars_unavailable' }), status: 502, stale: 0, cache: 'none' };
+  }
+  const payload = JSON.stringify(result);
+  memSet(key, payload, 200);
+  return { payload, status: 200, stale: 0, cache: 'computed' };
+}
+
 // ---- background refresher: keep a warm local snapshot so the site serves offline ----
 const WARM = [
   { source: 'scoreboard', key: 'scoreboard', fn: () => scoreboard(''), every: 3 * 60e3 },
   { source: 'standings', key: 'standings', fn: () => standings(), every: 6 * 3600e3 },
   { source: 'teams', key: 'teams', fn: () => teams(), every: 6 * 3600e3 },
   { source: 'stats', key: 'stats', fn: () => playerStats(), every: 6 * 3600e3 },
+  { source: 'pillars', key: 'pillars', fn: () => pillars(), every: 6 * 3600e3 },
   { source: 'news', key: 'news', fn: async () => proxied('news', 'news', ESPN + '/news'), every: 30 * 60e3 },
 ];
 const lastRun = new Map();
@@ -471,6 +572,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/scoreboard') return rp(await scoreboard(url.searchParams.toString()));
   if (url.pathname === '/api/standings') return rp(await standings());
   if (url.pathname === '/api/teams') return rp(await teams());
+  if (url.pathname === '/api/pillars') return rp(await pillars());
   if (url.pathname === '/api/players') {
     // full player list (same snapshot as leaders)
     const r = await playerStats();

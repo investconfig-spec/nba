@@ -87,6 +87,17 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .lead .hd{width:34px;height:34px}.lead .lk{color:var(--mu);font-size:10px;text-transform:uppercase;display:block}
 .lead .lv{font:700 18px Impact,'Arial Narrow',sans-serif;color:var(--acc)}.lead .ln{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:640px){.leads{grid-template-columns:1fr}}
+/* pillars bar graph */
+.bar-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.bar-row .bl{width:42px;font-weight:700;text-align:right;flex:none;font-size:12px}
+.bar-row .btrack{flex:1;background:var(--p2);border-radius:4px;height:14px;overflow:hidden}
+.bar-row .bfill{height:100%;background:var(--acc);border-radius:4px;min-width:2px}
+.bar-row.top .bfill{background:var(--gold)}
+.bar-row .bv{width:88px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;flex:none}
+.top4grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:6px}
+.top4chip{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;font-size:12px}
+.top4chip b{display:block;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-weight:400;color:var(--acc)}
+.pill.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
 </style></head><body>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
@@ -96,7 +107,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 "use strict";
 if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
 
-const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
+const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['pillars','Pillars'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
 let TAB='dash';
 const DATA={};
 
@@ -289,6 +300,67 @@ async function renderLeaders(){
     ${rows||'<div class="loading">No data.</div>'}`;
 }
 
+// ---------- Pillars (Hidden Markov Regression) ----------
+let PILLARS=[], PTOP4={}, PILSORT={k:'tempoGrip',dir:-1}, PGRAPH='stamina';
+const PILLAR_KEYS=['stamina','sharpness','efficiency','speed','tempoGrip'];
+const PILLAR_NAMES={stamina:'Stamina',sharpness:'Sharpness',efficiency:'Efficiency',speed:'Speed',tempoGrip:'Tempo Grip'};
+const PCOLS_P=[
+  {k:'rank',label:'Rk',fmt:'num'},{k:'name',label:'Team',fmt:'name'},
+  {k:'pts',label:'PTS',fmt:'dec'},{k:'reb',label:'REB',fmt:'dec'},{k:'ast',label:'AST',fmt:'dec'},{k:'tsPct',label:'TS%',fmt:'dec'},
+  {k:'stamina',label:'Stamina',fmt:'big'},{k:'sharpness',label:'Sharpness',fmt:'big'},
+  {k:'efficiency',label:'Efficiency',fmt:'big'},{k:'speed',label:'Speed',fmt:'big'},{k:'tempoGrip',label:'Tempo Grip',fmt:'big'},
+];
+const fmtBig=n=>n==null?'–':Number(n).toLocaleString('en-US',{maximumFractionDigits:2});
+function pvalP(t,k){return k==='name'?t.name:(t[k]!=null?t[k]:null);}
+function setSortP(k){if(PILSORT.k===k){PILSORT.dir=-PILSORT.dir}else{PILSORT.k=k;PILSORT.dir=(k==='name')?1:-1}drawPillars()}
+async function renderPillars(){
+  const v=$('#view');v.innerHTML='<div class="loading">Loading pillars…</div>';
+  const {data,stale}=await api('/api/pillars');
+  if(data.error){v.innerHTML=`<div class="err">Pillars unavailable: ${esc(data.error||'')}</div>`;return}
+  PILLARS=data.teams||[]; PTOP4=data.top4||{};
+  drawPillars();
+}
+function drawPillars(){
+  const v=$('#view');
+  const sorted=[...PILLARS].sort((a,b)=>{
+    const va=pvalP(a,PILSORT.k),vb=pvalP(b,PILSORT.k);
+    const na=Number(va),nb=Number(vb);
+    if(Number.isFinite(na)&&Number.isFinite(nb))return (na-nb)*PILSORT.dir;
+    return String(va==null?'':va).localeCompare(String(vb==null?'':vb))*PILSORT.dir;
+  });
+  const head=PCOLS_P.map(c=>`<th class="${c.k===PILSORT.k?'on':''}${c.fmt==='name'?'':' n'}" onclick="setSortP('${c.k}')">${c.label}${c.k===PILSORT.k?(PILSORT.dir<0?' ▾':' ▴'):''}</th>`).join('');
+  const top4set=new Set(PTOP4[PGRAPH]||[]);
+  const rows=sorted.map(t=>{
+    const cells=PCOLS_P.map(c=>{
+      if(c.fmt==='name')return `<td class="pname">${t.logo?`<img class="tlogo" src="${esc(t.logo)}" onerror="this.style.display='none'" alt="">`:''}${esc(t.name)}</td>`;
+      const val=t[c.k];
+      if(val==null)return `<td class="n mu">–</td>`;
+      if(c.fmt==='num')return `<td class="n">${val}</td>`;
+      if(c.fmt==='dec')return `<td class="n">${Number(val).toFixed(1)}</td>`;
+      return `<td class="n">${fmtBig(val)}</td>`;
+    }).join('');
+    const badges=(t.top4||[]).map(p=>`<span class="pill ${p===PGRAPH?'on':''}">${PILLAR_NAMES[p]||p}</span>`).join('');
+    return `<tr>${cells}<td class="mu">${badges||'<span class="mu sm">—</span>'}</td></tr>`;
+  }).join('');
+  const graphSorted=[...PILLARS].filter(t=>t[PGRAPH]!=null).sort((a,b)=>(b[PGRAPH]||0)-(a[PGRAPH]||0));
+  const max=Math.max(1,...graphSorted.map(t=>t[PGRAPH]||0));
+  const bars=graphSorted.map(t=>{
+    const w=t[PGRAPH]/max*100;
+    const isTop=top4set.has(t.abbr);
+    return `<div class="bar-row${isTop?' top':''}"><span class="bl">${esc(t.abbr)}</span><div class="btrack"><div class="bfill" style="width:${w.toFixed(1)}%"></div></div><span class="bv">${fmtBig(t[PGRAPH])}</span></div>`;
+  }).join('');
+  const top4list=Object.entries(PTOP4).map(([p,arr])=>{
+    const names=arr.map(a=>{const t=PILLARS.find(x=>x.abbr===a);return t?t.abbr:a;}).join(', ');
+    return `<div class="top4chip"><b>${PILLAR_NAMES[p]}</b><span class="mu"> ${names}</span></div>`;
+  }).join('');
+  v.innerHTML=`<div class="sec"><h2>Team Pillars</h2><small>Hidden Markov Regression · ${PILLARS.length} teams</small></div>
+    <div class="tabs">${PILLAR_KEYS.map(k=>`<button class="${k===PGRAPH?'on':''}" onclick="PGRAPH='${k}';drawPillars()">${PILLAR_NAMES[k]}</button>`).join('')}</div>
+    <div class="card" style="margin-bottom:14px"><h3>${PILLAR_NAMES[PGRAPH]} — comparison</h3><div id="pgraph" style="margin-top:8px">${bars}</div></div>
+    <div class="sec"><h2>Top 4 per pillar</h2></div><div class="top4grid">${top4list}</div>
+    <div class="sec"><h2>All teams</h2><small>click a column to sort</small></div>
+    <div class="stbl"><table class="sortable"><thead><tr>${head}<th class="mu">Top4</th></tr></thead><tbody>${rows||'<tr><td colspan="13" class="mu">No data.</td></tr>'}</tbody></table></div>`;
+}
+
 // ---------- News ----------
 async function renderNews(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading news…</div>';
@@ -332,7 +404,7 @@ async function renderAdmin(){
 
 function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('')}
 function go(t){TAB=t;nav();render()}
-function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
+function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,pillars:renderPillars,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
 
 document.addEventListener('click',e=>{
   const nb=e.target.closest('#nav button');if(nb){go(nb.dataset.t);return}
