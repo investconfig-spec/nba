@@ -524,6 +524,10 @@ async function computePillars() {
     normalization[pillar] = { target, sortKey: key, top4Sum: +sum.toFixed(3), factor };
   }
 
+  // soft-cap: any pillar > 3 -> 3 + value/10 (compress large outliers)
+  for (const x of rows) for (const k of ['stamina', 'sharpness', 'efficiency', 'speed', 'tempoGrip'])
+    if (x[k] != null && x[k] > 3) x[k] = 3 + x[k] / 10;
+
   // round pillar values for display
   for (const x of rows) for (const k of ['stamina', 'sharpness', 'efficiency', 'speed', 'tempoGrip'])
     if (x[k] != null && Number.isFinite(x[k])) x[k] = +x[k].toFixed(3);
