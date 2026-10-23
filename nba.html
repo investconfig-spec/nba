@@ -37,7 +37,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .grow .rec{color:var(--mu);font-size:11px;white-space:nowrap}
 .grow.win .nm{color:#fff}.grow.win .sc{color:var(--acc)}
 .gfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:9px;padding-top:8px;border-top:1px solid var(--ln);color:var(--mu);font-size:11.5px}
-.gactions{display:flex;gap:6px;margin-top:9px}.gbtn{flex:1;padding:7px 4px;background:rgba(255,107,0,.16);border:1px solid rgba(255,107,0,.5);border-radius:6px;color:#ffa85c;font-size:11px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.gbtn:hover{background:rgba(255,107,0,.28);border-color:var(--acc);color:#ffc08a}
+.gactions{display:flex;gap:6px;margin-top:9px}.gbtn{flex:1;padding:7px 4px;background:rgba(255,107,0,.16);border:1px solid rgba(255,107,0,.5);border-radius:6px;color:#ffa85c;font-size:11px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:background .15s,border-color .15s,color .15s}.gbtn:hover{background:rgba(255,107,0,.28);border-color:var(--acc);color:#ffc08a}.gbtn.tp5{background:rgba(74,144,226,.16);border:1px solid rgba(74,144,226,.5);color:#8fbcf2}.gbtn.tp5:hover{background:rgba(74,144,226,.28);border-color:var(--blu);color:#b5d4fa}
 .gdetail{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--ln)}
 .gdetail.open{display:block}
 .gdetail-head{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;color:var(--tx)}
@@ -51,6 +51,14 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .tp5-nm{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tp5-sub{color:var(--mu);font-size:10px}
 .tp5-sc{font-weight:400;font-size:14px;color:var(--acc);font-variant-numeric:tabular-nums}
+/* results archive */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-bottom:6px}
+.form-card{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px;text-align:center}
+.form-nm{font-family:Impact,'Arial Narrow',sans-serif;font-size:15px;letter-spacing:.03em}
+.form-wl{font-size:16px;font-weight:700;margin:2px 0}
+.form-pct{font-size:12px;color:var(--mu)}
+.form-pct.good{color:var(--grn)}.form-pct.bad{color:var(--red)}
+.win{font-weight:700;color:var(--grn)}
 .tp5-head{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:14px;font-weight:400;margin-bottom:10px;color:var(--tx)}
 .tp5-team.mir .tp5-h{text-align:right}
 .tp5-row.mir{flex-direction:row-reverse}
@@ -159,7 +167,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 "use strict";
 if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
 
-const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
+const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['results','Results'],['players','Players'],['leaders','Leaders'],['news','News'],['odds','Odds'],['admin','Admin']];
 let TAB='dash';
 const DATA={};
 
@@ -180,7 +188,7 @@ function gameCard(g){
   const row=(t)=>{const w=t&&t.winner?' win':'';return `<div class="grow${w}">${img(t&&t.logo,'lg',t&&t.name)}<span class="nm">${esc(t&&t.name||'')}</span><span class="rec">${esc(t&&t.record||'')}</span><span class="sc">${esc(t&&t.score!==''?t.score:'–')}</span></div>`};
   const ok=g.home&&g.home.abbr&&g.away&&g.away.abbr;
   const matchBtn=(st==='scheduled'&&ok)?`<button class="gbtn" onclick="toggleMatchup('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.away.abbr)}')">Match Up Metrics</button>`:'';
-  const top5Btn=ok?`<button class="gbtn" onclick="toggleTop5('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.home.name)}','${esc(g.away.abbr)}','${esc(g.away.name)}')">Top 5 Players</button>`:'';
+  const top5Btn=ok?`<button class="gbtn tp5" onclick="toggleTop5('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.home.name)}','${esc(g.away.abbr)}','${esc(g.away.name)}')">Top 5 Players</button>`:'';
   const actions=(matchBtn||top5Btn)?`<div class="gactions">${matchBtn}${top5Btn}</div>`:'';
   return `<div class="gcard" data-game="${esc(g.id)}"><div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>${row(g.home)}${row(g.away)}${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}${actions}<div class="gdetail"></div></div>`;
 }
@@ -432,6 +440,35 @@ function top5HTML(players,ha,hn,aa,an){
   return `<div class="tp5-head">Top 5 Players</div><div class="tp5-grid">${render(ha,hn,false)}${render(aa,an,true)}</div>`;
 }
 
+// ---------- Results archive (final games + team-form trends) ----------
+async function renderResults(){
+  const v=$('#view');v.innerHTML='<div class="loading">Loading results…</div>';
+  const {data}=await api('/api/results');
+  if(data.error||!data.results||!data.results.length){v.innerHTML=`<div class="sec"><h2>Results Archive</h2></div><div class="card"><p class="mu">No archived results yet — games are auto-archived once they finish.</p></div>`;return}
+  const results=[...data.results].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const form={};
+  for(const r of results){
+    const h=r.home,a=r.away;if(!h||!a)continue;
+    if(!form[h.abbr])form[h.abbr]={abbr:h.abbr,name:h.name,w:0,l:0};
+    if(!form[a.abbr])form[a.abbr]={abbr:a.abbr,name:a.name,w:0,l:0};
+    if(h.winner){form[h.abbr].w++;form[a.abbr].l++}else if(a.winner){form[a.abbr].w++;form[h.abbr].l++}
+  }
+  const formList=Object.values(form).sort((a,b)=>{const pa=a.w/(a.w+a.l||1),pb=b.w/(b.w+b.l||1);return pb-pa||(b.w-a.w)});
+  const formCards=formList.map(t=>{
+    const gp=t.w+t.l,pct=gp?Math.round(t.w/gp*100):0;
+    return `<div class="form-card"><div class="form-nm">${esc(t.abbr)}</div><div class="form-wl">${t.w}<span class="mu">–${t.l}</span></div><div class="form-pct ${pct>=60?'good':pct<=40?'bad':''}">${pct}%</div></div>`;
+  }).join('');
+  const rows=results.map(r=>{
+    const h=r.home,a=r.away;
+    const d=r.date?new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    return `<tr><td class="n mu">${d}</td><td class="${h&&h.winner?'win':''}">${h?esc(h.name):''}</td><td class="n b">${h&&h.score!==''?h.score:'–'} – ${a&&a.score!==''?a.score:'–'}</td><td class="${a&&a.winner?'win':''}">${a?esc(a.name):''}</td></tr>`;
+  }).join('');
+  v.innerHTML=`<div class="sec"><h2>Results Archive</h2><small>${results.length} final games · auto-archived for trend analysis</small></div>
+    <div class="sec"><h2>Team Form</h2><small>W–L from archived results</small></div><div class="form-grid">${formCards}</div>
+    <div class="sec"><h2>Games</h2></div>
+    <div class="stbl"><table class="sortable"><thead><tr><th class="n">Date</th><th>Home</th><th class="n">Score</th><th>Away</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 // ---------- News ----------
 async function renderNews(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading news…</div>';
@@ -517,7 +554,7 @@ async function renderAdmin(){
 
 function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('')}
 function go(t){TAB=t;nav();render()}
-function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
+function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,results:renderResults,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
 
 document.addEventListener('click',e=>{
   const nb=e.target.closest('#nav button');if(nb){go(nb.dataset.t);return}

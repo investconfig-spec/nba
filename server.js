@@ -35,7 +35,9 @@ const TTL = {
 };
 
 // ---- staging DB (SQLite) — the snapshot/backup table ----
-const DB_PATH = path.join(ROOT, 'nba_staging.db');
+const DATA_DIR = path.join(ROOT, 'data');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_PATH = path.join(DATA_DIR, 'nba_staging.db');
 const db = new DatabaseSync(DB_PATH);
 db.exec(`CREATE TABLE IF NOT EXISTS nba_cache (
   source TEXT NOT NULL, key TEXT NOT NULL, payload TEXT NOT NULL,
@@ -46,6 +48,27 @@ const upsertStaging = db.prepare(
 const getStaging = db.prepare(`SELECT payload, fetched_at FROM nba_cache WHERE source=? AND key=?`);
 const stagingCount = () => db.prepare(`SELECT count(*) n FROM nba_cache`).get().n;
 const stagingRows = () => db.prepare(`SELECT source, key, fetched_at FROM nba_cache ORDER BY source`).all();
+
+// ---- results archive (final games persisted so trends survive beyond the 5-day window) ----
+db.exec(`CREATE TABLE IF NOT EXISTS nba_results (
+  id TEXT PRIMARY KEY, date TEXT, home_abbr TEXT, away_abbr TEXT, winner_abbr TEXT,
+  payload TEXT NOT NULL, archived_at TEXT NOT NULL)`);
+const upsertResult = db.prepare(`INSERT OR IGNORE INTO nba_results (id,date,home_abbr,away_abbr,winner_abbr,payload,archived_at) VALUES (?,?,?,?,?,?,?)`);
+const listResults = db.prepare(`SELECT payload FROM nba_results ORDER BY date DESC, id DESC`);
+const resultCount = () => db.prepare(`SELECT count(*) n FROM nba_results`).get().n;
+function archiveResults(events) {
+  let added = 0;
+  const now = new Date().toISOString();
+  for (const ev of events || []) {
+    if (ev.status !== 'final') continue;
+    const h = ev.home || {}, a = ev.away || {};
+    const w = h.winner ? 'home' : (a.winner ? 'away' : '');
+    const wAbbr = w === 'home' ? (h.abbr || '') : (w === 'away' ? (a.abbr || '') : '');
+    const r = upsertResult.run(ev.id, ev.date || '', h.abbr || '', a.abbr || '', wAbbr, JSON.stringify(ev), now);
+    added += r.changes || 0;
+  }
+  return added;
+}
 
 // ---- in-memory TTL cache ----
 const mem = new Map();
@@ -183,6 +206,7 @@ async function scoreboard(qs) {
     upcoming: events.filter(e => e.status === 'scheduled'),
     recent: events.filter(e => e.status === 'final'),
   };
+  archiveResults(out.recent);  // persist finals so trends survive beyond the 5-day window
   return { payload: JSON.stringify(out), status: 200, stale: 0, cache: 'upstream' };
 }
 
@@ -565,6 +589,13 @@ async function pillars() {
   return { payload, status: 200, stale: 0, cache: 'computed' };
 }
 
+async function results() {
+  const rows = listResults.all();
+  const out = [];
+  for (const r of rows) { try { out.push(JSON.parse(r.payload)); } catch (e) {} }
+  return { payload: JSON.stringify({ results: out, count: out.length }), status: 200, stale: 0, cache: 'db' };
+}
+
 // ---- background refresher: keep a warm local snapshot so the site serves offline ----
 const WARM = [
   { source: 'scoreboard', key: 'scoreboard', fn: () => scoreboard(''), every: 3 * 60e3 },
@@ -593,6 +624,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/standings') return rp(await standings());
   if (url.pathname === '/api/teams') return rp(await teams());
   if (url.pathname === '/api/pillars') return rp(await pillars());
+  if (url.pathname === '/api/results') return rp(await results());
   if (url.pathname === '/api/players') {
     // full player list (same snapshot as leaders)
     const r = await playerStats();
