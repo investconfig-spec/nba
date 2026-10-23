@@ -509,7 +509,7 @@ async function computePillars() {
   }
 
   // ---- normalize each pillar so its top-4 (by sort key) sum equals the target ----
-  const PILLAR_TARGET = { stamina: 600, sharpness: 3, speed: 25, tempoGrip: 300 };
+  const PILLAR_TARGET = { stamina: 50, sharpness: 7, efficiency: 5, speed: 1.35, tempoGrip: 10 };
   const PILLAR_SORT_KEY = { stamina: 'reb', sharpness: 'ast', efficiency: 'pts', speed: 'tsPct', tempoGrip: 'tempoGrip' };
   const normalization = {};
   for (const pillar of Object.keys(PILLAR_SORT_KEY)) {
