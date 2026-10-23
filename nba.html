@@ -51,6 +51,10 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .tp5-nm{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tp5-sub{color:var(--mu);font-size:10px}
 .tp5-sc{font-weight:400;font-size:14px;color:var(--acc);font-variant-numeric:tabular-nums}
+.tp5-head{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:14px;font-weight:400;margin-bottom:10px;color:var(--tx)}
+.tp5-team.mir .tp5-h{text-align:right}
+.tp5-row.mir{flex-direction:row-reverse}
+.tp5-team.mir .tp5-nm{text-align:right}
 @media(max-width:520px){.tp5-grid{grid-template-columns:1fr}}
 .stbl{overflow-x:auto}.stbl table{min-width:520px}
 .tlogo{width:22px;height:22px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#1e1c24;margin-right:7px}
@@ -142,6 +146,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-side.left .mm-val{text-align:right}.mm-side.right .mm-val{text-align:left}
 .mm-vs-head{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
 .mm-spread{font:700 12px "Segoe UI",system-ui,Arial,sans-serif;background:var(--p2);border:1px solid var(--ln);border-radius:6px;padding:3px 8px;white-space:nowrap;color:var(--tx);font-variant-numeric:tabular-nums}
+.mm-total{font:700 12px "Segoe UI",system-ui,Arial,sans-serif;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.45);border-radius:6px;padding:3px 8px;white-space:nowrap;color:var(--grn);font-variant-numeric:tabular-nums}
 .mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx)}
 .mm-val.hi{background:rgba(255,105,180,.30);border-radius:4px;padding:1px 5px;color:#ffd7e8;font-weight:700}
@@ -203,7 +208,7 @@ async function toggleMatchup(gid,ha,aa){
   const A=teams.find(t=>t.abbr===ha), B=teams.find(t=>t.abbr===aa);
   if(!A||!B){el.innerHTML='<div class="err">Matchup data unavailable.</div>';return;}
   const sp=spreadFor(odds,A.name,B.name);
-  el.innerHTML=matchupBarsHTML(A,B,sp.h,sp.a);
+  el.innerHTML=matchupBarsHTML(A,B,sp.h,sp.a,sp.total);
 }
 async function toggleTop5(gid,ha,hn,aa,an){
   const el=gdetail(gid); if(!el)return;
@@ -380,18 +385,21 @@ async function getOdds(){if(_odds)return _odds;const {data}=await api('/api/odds
 function normName(n){return (n||'').replace(/^Los Angeles\b/,'LA').trim();}
 function spreadFor(odds,homeName,awayName){
   const g=odds.find(x=>(normName(x.home_team)===normName(homeName)&&normName(x.away_team)===normName(awayName))||(normName(x.home_team)===normName(awayName)&&normName(x.away_team)===normName(homeName)));
-  if(!g)return {h:null,a:null};
+  if(!g)return {h:null,a:null,total:null};
   const bk=(g.bookmakers||[])[0]||{};
   const sp=((bk.markets||[]).find(x=>x.key==='spreads')||{}).outcomes||[];
+  const to=((bk.markets||[]).find(x=>x.key==='totals')||{}).outcomes||[];
   const h=sp.find(o=>normName(o.name)===normName(homeName))||null;
   const a=sp.find(o=>normName(o.name)===normName(awayName))||null;
-  return {h,a};
+  const ov=to.find(o=>o.name==='Over')||null;
+  return {h,a,total:ov&&ov.point!=null?ov.point:null};
 }
 function spreadStr(o){if(!o||o.point==null)return null;const p=o.point>0?'+'+o.point:String(o.point);const px=o.price!=null?Number(o.price).toFixed(2):'';return p+'@'+px;}
-function matchupBarsHTML(A,B,hSp,aSp){
+function matchupBarsHTML(A,B,hSp,aSp,total){
   const hS=spreadStr(hSp), aS=spreadStr(aSp);
   const hChip=hS?`<span class="mm-spread">(H${esc(hS)})</span>`:'';
   const aChip=aS?`<span class="mm-spread">(A${esc(aS)})</span>`:'';
+  const tChip=total!=null?`<span class="mm-total">TOTAL ${Number(total).toFixed(1)}</span>`:'';
   const bars=PILLAR_KEYS.map(k=>{
     const va=A?.[k], vb=B?.[k];
     let pa,pb;
@@ -406,23 +414,22 @@ function matchupBarsHTML(A,B,hSp,aSp){
       <div class="mm-side right"><span class="mm-pct">${Math.round(pb)}%</span><div class="mm-bar"><div class="mm-fill b" style="width:${pb.toFixed(1)}%"></div></div><span class="mm-val${hiB?' hi':''}">${lb}</span></div>
     </div>`;
   }).join('');
-  return `<div class="mm-vs-head"><div class="mm-vs-name">${A?esc(A.name):''} <span class="mu">vs</span> ${B?esc(B.name):''}</div><div class="mm-vs-odds">${hChip}${aChip}</div></div><div class="gdetail-inner">${bars}</div>`;
+  return `<div class="mm-vs-head"><div class="mm-vs-name">${A?esc(A.name):''} <span class="mu">vs</span> ${B?esc(B.name):''}</div><div class="mm-vs-odds">${hChip}${tChip}${aChip}</div></div><div class="gdetail-inner">${bars}</div>`;
 }
 function top5HTML(players,ha,hn,aa,an){
   const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
   const topFor=abbr=>players.filter(p=>(p.teamShortName||'').toUpperCase()===(abbr||'').toUpperCase())
     .map(p=>({...p,combo:(n(p.stats&&p.stats.tsPct)+n(p.stats&&p.stats.avgPoints))/1.3}))
     .sort((a,b)=>b.combo-a.combo).slice(0,5);
-  const render=(abbr,name)=>{
+  const render=(abbr,name,mirror)=>{
     const top=topFor(abbr);
-    const rows=top.map(p=>`<div class="tp5-row">
-      ${img(p.headshot,'hs',p.name)}
-      <div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div></div>
-      <div class="tp5-sc">${p.combo.toFixed(1)}</div>
-    </div>`).join('');
-    return `<div class="tp5-team"><div class="tp5-h">${esc(name||abbr)}</div>${rows||'<div class="mu sm">No players yet</div>'}</div>`;
+    const rows=top.map(p=>mirror
+      ?`<div class="tp5-row mir"><div class="tp5-sc">${p.combo.toFixed(1)}</div><div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div></div>${img(p.headshot,'hs',p.name)}</div>`
+      :`<div class="tp5-row">${img(p.headshot,'hs',p.name)}<div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div></div><div class="tp5-sc">${p.combo.toFixed(1)}</div></div>`
+    ).join('');
+    return `<div class="tp5-team${mirror?' mir':''}"><div class="tp5-h">${esc(name||abbr)}</div>${rows||'<div class="mu sm">No players yet</div>'}</div>`;
   };
-  return `<div class="gdetail-head">Top 5 Players <span class="mu">· TS% + PTS</span></div><div class="tp5-grid">${render(ha,hn)}${render(aa,an)}</div>`;
+  return `<div class="tp5-head">Top 5 Players</div><div class="tp5-grid">${render(ha,hn,false)}${render(aa,an,true)}</div>`;
 }
 
 // ---------- News ----------
