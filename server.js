@@ -20,7 +20,12 @@ const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 const ESPN_WEB = 'https://site.web.api.espn.com/apis/v2/sports/basketball/nba';
 const ESPN_STATS = 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete?region=us&lang=en&contentorigin=espn&limit=500';
 const ODDS_KEY = 'f7e06f4d27c1bb5e70d6f4713b8d2f8e';
+const ODDS_URL = `https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?regions=us&markets=h2h,spreads,totals&oddsFormat=decimal&apiKey=${ODDS_KEY}`;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
+// TeamRankings odds (free scrape, no quota) — fallback when The Odds API is exhausted/empty
+const TR_ODDS = 'https://www.teamrankings.com/nba/odds/';
+const TR_AJAX = 'https://www.teamrankings.com/ajax/league/v3/odds_controller.php';
+const TR_TTL = 60 * 60 * 1000; // 1h — free source, next-day lines move slowly
 
 // ---- per-source TTL (ms) ----
 const TTL = {
@@ -49,25 +54,66 @@ const getStaging = db.prepare(`SELECT payload, fetched_at FROM nba_cache WHERE s
 const stagingCount = () => db.prepare(`SELECT count(*) n FROM nba_cache`).get().n;
 const stagingRows = () => db.prepare(`SELECT source, key, fetched_at FROM nba_cache ORDER BY source`).all();
 
-// ---- results archive (final games persisted so trends survive beyond the 5-day window) ----
+// ---- results archive (pre-map upcoming + snapshot odds BEFORE final, then merge results) ----
 db.exec(`CREATE TABLE IF NOT EXISTS nba_results (
   id TEXT PRIMARY KEY, date TEXT, home_abbr TEXT, away_abbr TEXT, winner_abbr TEXT,
   payload TEXT NOT NULL, archived_at TEXT NOT NULL)`);
-const upsertResult = db.prepare(`INSERT OR IGNORE INTO nba_results (id,date,home_abbr,away_abbr,winner_abbr,payload,archived_at) VALUES (?,?,?,?,?,?,?)`);
+const upsertResult = db.prepare(`INSERT INTO nba_results (id,date,home_abbr,away_abbr,winner_abbr,payload,archived_at)
+  VALUES (?,?,?,?,?,?,?)
+  ON CONFLICT(id) DO UPDATE SET
+    date=excluded.date, home_abbr=excluded.home_abbr, away_abbr=excluded.away_abbr,
+    winner_abbr=excluded.winner_abbr, payload=excluded.payload, archived_at=excluded.archived_at`);
+const getResult = db.prepare(`SELECT payload FROM nba_results WHERE id=?`);
 const listResults = db.prepare(`SELECT payload FROM nba_results ORDER BY date DESC, id DESC`);
 const resultCount = () => db.prepare(`SELECT count(*) n FROM nba_results`).get().n;
-function archiveResults(events) {
-  let added = 0;
+
+// team-name normalisation (mirrors the frontend normName) for odds matching
+function normName(n) { return (n || '').replace(/^Los Angeles\b/, 'LA').trim(); }
+
+// odds snapshot: match one event's home/away to The Odds API, return the
+// spread (home/away point+price) and total, or null when no line exists.
+function snapshotOdds(ev, oddsArr) {
+  const h = ev.home, a = ev.away;
+  if (!h || !a || !h.name || !a.name || !oddsArr || !oddsArr.length) return null;
+  const g = oddsArr.find(x =>
+    (normName(x.home_team) === normName(h.name) && normName(x.away_team) === normName(a.name)) ||
+    (normName(x.home_team) === normName(a.name) && normName(x.away_team) === normName(h.name)));
+  if (!g) return null;
+  const bk = (g.bookmakers || [])[0] || {};
+  const sp = ((bk.markets || []).find(x => x.key === 'spreads') || {}).outcomes || [];
+  const to = ((bk.markets || []).find(x => x.key === 'totals') || {}).outcomes || [];
+  const hh = sp.find(o => normName(o.name) === normName(h.name)) || null;
+  const aa = sp.find(o => normName(o.name) === normName(a.name)) || null;
+  const ov = to.find(o => o.name === 'Over') || null;
+  const total = ov && ov.point != null ? ov.point : null;
+  if (!hh && !aa && total == null) return null;
+  return {
+    h: hh && hh.point != null ? { point: hh.point, price: hh.price } : null,
+    a: aa && aa.point != null ? { point: aa.point, price: aa.price } : null,
+    total,
+  };
+}
+
+// Pre-map EVERY event (scheduled/live/final) into nba_results with an odds
+// snapshot. When a game goes final, the result merges in via UPSERT while the
+// pre-snapshotted odds are preserved (bookmakers pull the line post-game).
+function snapshotResults(events, oddsArr) {
+  let written = 0;
   const now = new Date().toISOString();
   for (const ev of events || []) {
-    if (ev.status !== 'final') continue;
     const h = ev.home || {}, a = ev.away || {};
     const w = h.winner ? 'home' : (a.winner ? 'away' : '');
     const wAbbr = w === 'home' ? (h.abbr || '') : (w === 'away' ? (a.abbr || '') : '');
-    const r = upsertResult.run(ev.id, ev.date || '', h.abbr || '', a.abbr || '', wAbbr, JSON.stringify(ev), now);
-    added += r.changes || 0;
+    let odds = snapshotOdds(ev, oddsArr);
+    if ((!odds || odds.total == null) && ev.status === 'final') {
+      const prior = getResult.get(ev.id);
+      if (prior) { try { odds = JSON.parse(prior.payload).odds || null; } catch (e) {} }
+    }
+    const payload = JSON.stringify({ ...ev, odds });
+    const r = upsertResult.run(ev.id, ev.date || '', h.abbr || '', a.abbr || '', wAbbr, payload, now);
+    if (r.changes > 0) written++;
   }
-  return added;
+  return written;
 }
 
 // ---- in-memory TTL cache ----
@@ -119,6 +165,128 @@ async function proxied(source, key, url) {
   })().finally(() => inflight.delete(cacheKey));
   inflight.set(cacheKey, p);
   return p;
+}
+
+// ---- TeamRankings odds (free scrape fallback for The Odds API) ----
+// slug -> display name (e.g. "los-angeles-clippers" -> "Los Angeles Clippers");
+// normName() on both sides later reconciles Clippers/Lakers with ESPN's "LA Clippers".
+function teamNameFromSlug(slug) {
+  return (slug || '').split('-').map(w => w ? w[0].toUpperCase() + w.slice(1) : w).join(' ').trim();
+}
+
+// Parse the TeamRankings AJAX HTML (tables of [away row][home row][footer]) into the
+// SAME shape The Odds API returns, so the frontend spreadFor()/snapshotOdds() read it unchanged.
+function parseTeamRankings(html) {
+  const games = [];
+  const tables = html.match(/<table[^>]*tr-table[^>]*>[\s\S]*?<\/table>/g) || [];
+  const sp = n => { const x = parseFloat(n); return Number.isFinite(x) ? x : null; };
+  const ml = n => { const x = parseInt(n, 10); return Number.isFinite(x) ? x : null; };
+  for (const tbl of tables) {
+    const tb = tbl.match(/<tbody>([\s\S]*?)<\/tbody>/);
+    if (!tb) continue;
+    const rows = (tb[1].match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || []).filter(r => !/score-footer/.test(r));
+    if (rows.length < 2) continue;
+    const teams = [];
+    for (const r of rows) {
+      const slug = (r.match(/href="\/nba\/team\/([^"]+)"/) || [])[1] || '';
+      const tds = r.match(/<td[^>]*>[\s\S]*?<\/td>/g) || [];
+      const cell = i => tds[i] ? tds[i].replace(/<[^>]+>/g, '').trim() : '';
+      // td order: [0]=team name, [1]=empty, [2]=spread, [3]=total, [4]=money line
+      teams.push({ name: teamNameFromSlug(slug), spread: cell(2), total: cell(3), moneyline: cell(4) });
+    }
+    const away = teams[0], home = teams[1];
+    const total = sp(away.total || home.total);
+    const awayPt = sp(away.spread), homePt = sp(home.spread);
+    if (awayPt == null && homePt == null && total == null) continue;
+    const markets = [];
+    const h2h = [];
+    const aml = ml(away.moneyline), hml = ml(home.moneyline);
+    if (aml != null) h2h.push({ name: away.name, price: aml });
+    if (hml != null) h2h.push({ name: home.name, price: hml });
+    if (h2h.length) markets.push({ key: 'h2h', outcomes: h2h });
+    const spreads = [];
+    if (awayPt != null) spreads.push({ name: away.name, point: awayPt });
+    if (homePt != null) spreads.push({ name: home.name, point: homePt });
+    if (spreads.length) markets.push({ key: 'spreads', outcomes: spreads });
+    if (total != null) markets.push({ key: 'totals', outcomes: [{ name: 'Over', point: total }, { name: 'Under', point: total }] });
+    if (!markets.length) continue;
+    games.push({ home_team: home.name, away_team: away.name, bookmakers: [{ key: 'teamrankings', markets }] });
+  }
+  return games;
+}
+
+let _seasonId = null;
+async function getSeasonId() {
+  if (_seasonId) return _seasonId;
+  const r = await fetchUpstream(TR_ODDS);
+  if (r.ok) {
+    const m = r.text.match(/name="season_id"\s+value="(\d+)"/i);
+    if (m) _seasonId = m[1];
+  }
+  return _seasonId || '224';
+}
+
+async function teamRankingsOdds() {
+  const cacheKey = 'troods:odds';
+  const hit = memGet(cacheKey, TR_TTL);
+  if (hit) return { payload: hit.payload, status: 200, stale: 0, cache: 'memory' };
+  if (inflight.has(cacheKey)) return inflight.get(cacheKey);
+  const p = (async () => {
+    let up = { ok: false, status: 0, text: '' };
+    try {
+      const seasonId = await getSeasonId();
+      const body = `league=nba&view_type=odds&view=latest&season_id=${seasonId}&div=0&team=0`;
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 20000);
+      const resp = await fetch(TR_AJAX, {
+        method: 'POST',
+        headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body, signal: ctl.signal,
+      });
+      const text = await resp.text();
+      clearTimeout(t);
+      up = { ok: resp.ok, status: resp.status, text };
+    } catch (e) { up = { ok: false, status: 0, text: '', error: String(e && e.message || e) }; }
+
+    if (up.ok) {
+      const payload = JSON.stringify(parseTeamRankings(up.text));
+      upsertStaging.run('troods', 'odds', payload, up.status, new Date().toISOString());
+      memSet(cacheKey, payload, up.status);
+      return { payload, status: 200, stale: 0, cache: 'upstream' };
+    }
+    const row = getStaging.get('troods', 'odds');
+    if (row) return { payload: row.payload, status: 200, stale: 1, cache: 'staging', fetchedAt: row.fetched_at };
+    return { payload: '[]', status: 502, stale: 0, cache: 'none' };
+  })().finally(() => inflight.delete(cacheKey));
+  inflight.set(cacheKey, p);
+  return p;
+}
+
+// The Odds API and TeamRankings merged. When The Odds API is FRESH (live) it wins;
+// when it is stale/empty (e.g. monthly quota exhausted -> staging fallback) TeamRankings
+// is fresher and wins instead. Either way the other source fills any missing games.
+async function mergedOdds() {
+  let oddsArr = [], oddsFresh = false;
+  try {
+    const o = await proxied('odds', 'odds:h2h,spreads,totals', ODDS_URL);
+    if (o.status === 200) { oddsArr.push(...JSON.parse(o.payload)); oddsFresh = !o.stale; }
+  } catch (e) {}
+  let trArr = [];
+  try {
+    const t = await teamRankingsOdds();
+    if (t.status === 200) trArr.push(...JSON.parse(t.payload));
+  } catch (e) {}
+  const key = g => [normName(g.home_team), normName(g.away_team)].sort().join('|');
+  const primary = oddsFresh ? oddsArr : trArr;
+  const secondary = oddsFresh ? trArr : oddsArr;
+  const seen = new Set(primary.map(key));
+  const merged = primary.slice();
+  for (const g of secondary) {
+    if (seen.has(key(g))) continue;
+    seen.add(key(g));
+    merged.push(g);
+  }
+  return merged;
 }
 
 // ---- normalisers ----
@@ -206,7 +374,10 @@ async function scoreboard(qs) {
     upcoming: events.filter(e => e.status === 'scheduled'),
     recent: events.filter(e => e.status === 'final'),
   };
-  archiveResults(out.recent);  // persist finals so trends survive beyond the 5-day window
+  // pre-map upcoming + snapshot odds BEFORE final, merge results after
+  let oddsArr = null;
+  try { oddsArr = await mergedOdds(); } catch (e) {}
+  snapshotResults(events, oddsArr);
   return { payload: JSON.stringify(out), status: 200, stale: 0, cache: 'upstream' };
 }
 
@@ -603,6 +774,7 @@ const WARM = [
   { source: 'teams', key: 'teams', fn: () => teams(), every: 6 * 3600e3 },
   { source: 'stats', key: 'stats', fn: () => playerStats(), every: 6 * 3600e3 },
   { source: 'pillars', key: 'pillars', fn: () => pillars(), every: 6 * 3600e3 },
+  { source: 'troods', key: 'troods:odds', fn: () => teamRankingsOdds(), every: 60 * 60e3 },
   { source: 'news', key: 'news', fn: async () => proxied('news', 'news', ESPN + '/news'), every: 30 * 60e3 },
 ];
 const lastRun = new Map();
@@ -662,8 +834,8 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/api/news') return rp(await proxied('news', 'news', ESPN + '/news'));
   if (url.pathname === '/api/odds') {
-    const markets = url.searchParams.get('markets') || 'h2h,spreads,totals';
-    return rp(await proxied('odds', 'odds:' + markets, `https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?regions=us&markets=${encodeURIComponent(markets)}&oddsFormat=decimal&apiKey=${ODDS_KEY}`));
+    const merged = await mergedOdds();
+    return send(res, 200, JSON.stringify(merged));
   }
   if (url.pathname === '/api/health') {
     return send(res, 200, JSON.stringify({ ok: true, staging_rows: stagingCount(), staging: stagingRows() }));

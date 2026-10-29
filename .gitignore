@@ -4,6 +4,7 @@ chrome_profile/
 __pycache__/
 dashboard.png
 *.png
+data/
 
 # Pre-existing "Hardwood" FastAPI/nba_api scaffold (parallel attempt, different
 # architecture) — kept out of this Node module's repo. See NOTES.md.
