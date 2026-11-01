@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LIVENBA — NBA Tech Stats</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root {
+    --ink:#080B10; --ink-2:#0C1017; --panel:#111722; --panel-2:#161D2B;
+    --line:#1F2836; --line-2:#2A3547; --line-3:#35425A;
+    --text:#EDF2F7; --text-2:#B4BDCB; --text-3:#8F9AAB;
+    --accent:#E0B84C; --accent-strong:#F0C85C; --accent-dim:rgba(224,184,76,.12); --accent-line:rgba(224,184,76,.35);
+    --danger:#FF5C5C; --danger-dim:rgba(255,92,92,.1);
+    --ok:#6BE39A;
+    --away:#7AA2FF; --away-dim:rgba(122,162,255,.12); --away-line:rgba(122,162,255,.35);
+    --amber:#FFB86B; --amber-dim:rgba(255,184,107,.12);
+    --bg: var(--ink); --card: var(--panel); --border: var(--line);
+    --muted: var(--text-3); --fg: var(--text);
+    --home: var(--accent); --live: var(--ok); --live-soft: rgba(107,227,154,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -14px rgba(0,0,0,.55);
+    --font:'Inter',system-ui,-apple-system,sans-serif;
+    --disp:'Barlow Condensed','Arial Narrow',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,'Cascadia Mono',monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: radial-gradient(1100px 520px at 12% -8%,rgba(224,184,76,.055),transparent 62%), radial-gradient(800px 420px at 88% -4%,rgba(122,162,255,.05),transparent 60%), var(--bg); color: var(--text); font-family: var(--font); font-size: 18px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 16px 60px; }
+
+  .topbar { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .brand { font-size: 26px; font-weight: 800; letter-spacing: .3px; }
+  .brand b { color: var(--home); } .brand .dot { color: var(--away); }
+  .sub { color: var(--muted); font-size: 16px; margin-top: 2px; }
+
+  /* cross-sport cascade nav */
+  .casc { background: var(--ink-2); border-bottom: 1px solid var(--line); }
+  .casc-in { max-width: 1280px; margin: auto; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 13px 16px 11px; text-align: center; }
+  .casc-crumb { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: center; }
+  .casc-brand { font: 700 19px var(--disp); letter-spacing: .04em; color: var(--text); text-decoration: none; }
+  .casc-brand b { color: var(--accent); }
+  .casc-sep { color: var(--muted); font-size: 17px; }
+  .casc-cur { font: 700 15px var(--font); color: var(--text); text-transform: uppercase; letter-spacing: .05em; }
+  .casc-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .casc-nav a { font: 600 13px var(--font); color: var(--text); border: 1px solid var(--line); border-radius: 99px; padding: 7px 16px; text-decoration: none; transition: border-color .15s ease, background .15s ease; }
+  .casc-nav a:hover { border-color: var(--accent); background: rgba(255,255,255,.04); }
+
+  .tabbar { display: flex; gap: 6px; margin: 14px 0 14px; flex-wrap: wrap; }
+  .tab { padding: 8px 18px; border: 1px solid var(--border); background: var(--card); color: var(--muted); border-radius: 9px; font-size: 17px; font-weight: 600; cursor: pointer; }
+  .tab.active { background: var(--home); color: #fff; border-color: var(--home); }
+  .tab:hover:not(.active) { border-color: #35425A; }
+
+  .statusbar { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 8px; background: var(--card); border: 1px solid var(--border); font-size: 16px; color: var(--muted); }
+  .chip .live { width: 8px; height: 8px; border-radius: 50%; background: var(--live); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .chip b { color: var(--text); }
+
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  th.c, td.c { text-align: center; } th.r, td.r { text-align: right; }
+  .day-row td { padding: 9px 14px; font-size: 16px; font-weight: 700; color: var(--muted); background: #161D2B; letter-spacing: .3px; }
+  .day-row td .cnt { font-weight: 600; color: #8F9AAB; margin-left: 6px; }
+  tbody tr.mrow { border-bottom: 1px solid #1F2836; cursor: pointer; }
+  tbody tr.mrow:last-child { border-bottom: none; }
+  tbody tr.mrow:hover { background: rgba(255,255,255,.04); }
+  td { padding: 9px 14px; vertical-align: middle; }
+  td.time { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); font-size: 17px; }
+  .period { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 14px; font-weight: 700; background: var(--live-soft); color: var(--live); }
+  .period .min { opacity: .75; margin-left: 3px; font-weight: 600; }
+  .period.ft { background: #1F2836; color: var(--muted); }
+  .period.up { background: #161D2B; color: var(--muted); }
+  .team { font-weight: 600; } .team.h { color: var(--home); } .team.a { color: var(--away); }
+  td.score { text-align: center; font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.score .dash { color: #35425A; }
+  td.arrow { text-align: center; color: #35425A; font-size: 17px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 50px 20px; }
+  .err { background: rgba(255,92,92,.1); border: 1px solid rgba(255,92,92,.35); color: #FF5C5C; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; font-size: 17px; }
+
+  /* ---------- MATCH (game block) ---------- */
+  .match { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 18px 20px; }
+  .tm { display: flex; flex-direction: column; gap: 4px; }
+  .tm.h { align-items: flex-start; } .tm.a { align-items: flex-end; }
+  .tm .name { font-size: 22px; font-weight: 700; }
+  .tm.h .name { color: var(--home); } .tm.a .name { color: var(--away); }
+  .tm .meta { font-size: 14px; color: var(--muted); }
+  .center { text-align: center; }
+  .score { font-size: 44px; font-weight: 800; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+  .status { display: inline-block; margin-top: 4px; padding: 3px 10px; border-radius: 20px; font-size: 14px; font-weight: 700; background: var(--live); color: #fff; }
+  .status.ft { background: var(--muted); } .status.up { background: var(--muted); }
+  .quarters { display: flex; justify-content: center; gap: 8px; padding: 0 20px 14px; flex-wrap: wrap; }
+  .qbox { border: 1px solid var(--border); border-radius: 8px; min-width: 44px; text-align: center; }
+  .qbox .qh { font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; padding: 2px 6px; }
+  .qbox .qh.h { color: var(--home); } .qbox .qh.a { color: var(--away); }
+  .qbox .ql { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-top: 1px solid var(--border); padding: 1px 0; }
+  .section-title { padding: 14px 20px 8px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .stat-row { display: grid; grid-template-columns: 90px 1fr 90px; align-items: center; gap: 10px; padding: 7px 20px; }
+  .stat-row .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 18px; white-space: nowrap; }
+  .stat-row .v.h { color: var(--home); text-align: left; } .stat-row .v.a { color: var(--away); text-align: right; }
+  .stat-row .raw { display: block; font-size: 14px; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .stat-row .bar { height: 8px; border-radius: 4px; display: flex; overflow: hidden; background: #ffe0dd; }
+  .stat-row .bar .seg-h { background: var(--home); height: 100%; transition: width .3s ease; }
+  .stat-row .lbl { grid-column: 1 / -1; text-align: center; font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+  /* ---------- top players ---------- */
+  .players { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 8px 20px 18px; }
+  @media(max-width:720px){ .players { grid-template-columns: 1fr; } }
+  .players-side .ph { font-weight: 800; font-size: 17px; padding: 6px 0; }
+  .players-side.h .ph { color: var(--home); } .players-side.a .ph { color: var(--away); }
+  .prow { display: flex; align-items: center; gap: 9px; padding: 5px 0; }
+  .prow .rk { width: 20px; height: 20px; border-radius: 50%; background: #161D2B; color: var(--muted); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+  .prow .nm { flex: 1; font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prow .st { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .prow .pts { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 18px; min-width: 30px; text-align: right; }
+  .players-side.h .prow .pts { color: var(--home); } .players-side.a .prow .pts { color: var(--away); }
+  .players-empty { color: var(--muted); font-size: 16px; padding: 8px 0; }
+
+  /* ---------- INRUNNOW / PROINRUN cards ---------- */
+  .inrun-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 14px; overflow: hidden; }
+  .inrun-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .inrun-teams { display: flex; align-items: center; gap: 10px; font-weight: 700; min-width: 0; }
+  .inrun-teams .h { color: var(--home); } .inrun-teams .a { color: var(--away); }
+  .inrun-teams .sc { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .inrun-meta { margin-left: auto; text-align: right; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .inrun-meta .period { margin-left: 6px; }
+  .inrun-stats { padding: 6px 16px 12px; }
+  .inrun-srow { display: grid; grid-template-columns: 76px 1fr 76px; align-items: center; gap: 10px; padding: 3px 0; }
+  .inrun-srow .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17px; white-space: nowrap; }
+  .inrun-srow .v.h { color: var(--home); text-align: left; }
+  .inrun-srow .v.a { color: var(--away); text-align: right; }
+  .inrun-srow .v.win { font-weight: 800; }
+  .inrun-srow .bar { height: 13px; border-radius: 7px; overflow: hidden; display: flex; background: #ffe0dd; position: relative; }
+  .inrun-srow .bar .seg-h { background: #dbe7ff; height: 100%; }
+  .inrun-srow .bar .nm { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #EDF2F7; }
+
+  /* PROINRUN segment tabs */
+  .pro-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+  .pro-sb { padding: 14px 16px 8px; }
+  .pro-teams { display: flex; align-items: center; justify-content: center; gap: 14px; font-weight: 700; }
+  .pro-side { font-size: 21px; min-width: 0; }
+  .pro-side.h { color: var(--home); } .pro-side.a { color: var(--away); }
+  .pro-score { font-size: 29px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pro-meta { display: flex; flex-direction: column; align-items: center; gap: 1px; margin-top: 6px; }
+  .pro-status { font-size: 16px; font-weight: 700; color: var(--live); }
+  .pro-league { font-size: 16px; color: var(--muted); }
+  .pro-seg { display: flex; gap: 4px; padding: 8px 16px 6px; }
+  .pro-seg-tab { padding: 5px 12px; border: 1px solid var(--border); background: #161D2B; color: var(--muted); border-radius: 7px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .pro-seg-tab.active { color: #fff; }
+  .pro-seg-tab.seg-st.active { background: #22c55e; border-color: #22c55e; }
+  .pro-seg-tab.seg-mm.active { background: #3b82f6; border-color: #3b82f6; }
+  .pro-seg-tab.seg-tp.active { background: #f59e0b; border-color: #f59e0b; }
+  .pro-seg-tab.seg-la.active { background: #a78bfa; border-color: #a78bfa; }
+  .pro-seg-tab.seg-lg.active { background: #14b8a6; border-color: #14b8a6; }
+  .pro-tab { display: none; }
+  .pro-tab.active { display: block; }
+  .pro-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding: 4px 16px 16px; }
+  @media(max-width:720px){ .pro-stats { grid-template-columns: 1fr; } }
+  .pro-col { min-width: 0; }
+  .pro-col-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 6px 0; }
+  .pro-row { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; padding: 3px 0; }
+  .pro-row .v { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17px; }
+  .pro-row .v.h { color: var(--home); text-align: left; } .pro-row .v.a { color: var(--away); text-align: right; }
+  .pro-row .v.win { font-weight: 800; padding: 1px 7px; border-radius: 6px; }
+  .pro-row .v.h.win { background: rgba(224,184,76,.18); box-shadow: inset 0 0 0 1px var(--home); }
+  .pro-row .v.a.win { background: rgba(122,162,255,.18); box-shadow: inset 0 0 0 1px var(--away); }
+  .pro-row .bar { height: 16px; border-radius: 6px; overflow: hidden; display: flex; background: #1F2836; position: relative; }
+  .pro-row .bar .seg-h { background: #7AA2FF; height: 100%; }
+  .pro-row .bar .nm { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #EDF2F7; }
+  .pro-players { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 10px 16px 16px; }
+  @media(max-width:720px){ .pro-players { grid-template-columns: 1fr; } }
+  .pro-players-head { font-weight: 800; font-size: 17px; padding: 6px 0; }
+  .pro-players-side.h .pro-players-head { color: var(--home); }
+  .pro-players-side.a .pro-players-head { color: var(--away); }
+  .pro-player-row { display: flex; align-items: center; gap: 9px; padding: 5px 0; }
+  .pro-player-rank { width: 20px; height: 20px; border-radius: 50%; background: #161D2B; color: var(--muted); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+  .pro-player-name { flex: 1; font-weight: 600; font-size: 17px; }
+  .pro-player-sub { color: var(--muted); font-size: 14px; }
+  .pro-player-rating { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 17px; }
+  .pro-players-side.h .pro-player-rating { color: var(--home); }
+  .pro-players-side.a .pro-player-rating { color: var(--away); }
+  .pro-player-empty { color: var(--muted); font-size: 16px; padding: 8px 0; }
+
+  /* MM / LA / LG tabs */
+  .pro-split-wrap { padding: 8px 16px 2px; }
+  .pro-splitbar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #1F2836; }
+  .pro-splitbar .sp-h { background: #7AA2FF; height: 100%; }
+  .pro-split-labels { display: flex; justify-content: space-between; padding: 3px 0 8px; font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; }
+  .pro-split-labels .h { color: var(--home); } .pro-split-labels .a { color: var(--away); }
+  .pro-sechead { padding: 10px 16px 4px; font-size: 14px; font-weight: 800; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+  .pro-la-grid, .pro-lg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 10px 16px 16px; }
+  @media(max-width:720px){ .pro-la-grid, .pro-lg-grid { grid-template-columns: 1fr; } }
+  .pro-la-team, .pro-lg-side { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .pro-la-name, .pro-lg-name { font-weight: 800; font-size: 18px; margin-bottom: 8px; }
+  .pro-la-team.h .pro-la-name, .pro-lg-side.h .pro-lg-name { color: var(--home); }
+  .pro-la-team.a .pro-la-name, .pro-lg-side.a .pro-lg-name { color: var(--away); }
+  .pro-la-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .pro-la-row .lk { width: 74px; flex: none; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .pro-la-row .lb { flex: 1; height: 12px; border-radius: 6px; background: #161D2B; overflow: hidden; }
+  .pro-la-row .lf { display: block; height: 100%; }
+  .pro-la-team.h .lf { background: #7AA2FF; } .pro-la-team.a .lf { background: #fca5a5; }
+  .pro-la-row .lv { width: 42px; flex: none; font-size: 16px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+  .pro-lg-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 16px; }
+  .pro-lg-row .lk { width: 86px; flex: none; color: var(--muted); font-weight: 600; font-size: 14px; }
+  .pro-lg-row .now { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .pro-lg-row .last { color: var(--muted); font-size: 14px; }
+  .pro-lg-row .arrow { margin-left: auto; font-weight: 800; color: var(--muted); }
+  .pro-lg-row .arrow.up { color: #16a34a; } .pro-lg-row .arrow.dn { color: #dc2626; }
+
+  /* MM momentum / signals */
+  .pro-mom-note { padding: 10px 16px 2px; font-size: 16px; color: var(--muted); }
+  .pro-mom { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 10px 16px 2px; }
+  @media(max-width:720px){ .pro-mom { grid-template-columns: 1fr; } }
+  .pro-mom-head { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .pro-mom-head span { font-size: 14px; font-weight: 800; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; }
+  .pro-mom-head b { font-size: 29px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); }
+  .pro-mom-half { padding: 8px 16px 2px; font-size: 16px; font-weight: 800; letter-spacing: .06em; color: var(--home); text-transform: uppercase; }
+  .pro-mom-sig { padding: 3px 16px; font-size: 17px; font-weight: 600; color: var(--text); }
+  .pro-mom-badge { display: inline-block; font-weight: 800; color: var(--home); }
+  .pro-mom-advice { padding: 6px 16px 2px; }
+  .pro-mom-team { padding: 6px 0 2px; font-size: 17px; font-weight: 800; }
+  .pro-mom-line { padding: 2px 0 2px 14px; font-size: 16px; color: var(--muted); }
+  .pro-mom-line::before { content: '· '; color: var(--muted); }
+
+  /* LA — Live Analysis (tactical engine) */
+  .inrun-analysis { display: flex; flex-direction: column; gap: 16px; padding: 6px 16px 16px; }
+  .la-cp { display: flex; flex-direction: column; gap: 10px; }
+  .la-cp-head { display: flex; align-items: baseline; gap: 12px; padding: 8px 0 10px; border-bottom: 1px solid var(--border); }
+  .la-cp-tick { font-weight: 700; font-size: 18px; color: var(--home); font-variant-numeric: tabular-nums; }
+  .la-cp-score { font-weight: 600; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .la-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  @media(max-width:720px){ .la-cards { grid-template-columns: 1fr; } }
+  .la-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .la-card.home { border-left: 3px solid var(--home); }
+  .la-card.away { border-left: 3px solid var(--away); }
+  .la-card-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .la-team { font-weight: 700; font-size: 17px; color: var(--text); }
+  .la-agenda { font-weight: 600; font-size: 16px; color: var(--home); text-transform: capitalize; }
+  .la-state { font-weight: 600; font-size: 13px; letter-spacing: .08em; color: var(--text); background: #161D2B; border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; margin-left: auto; }
+  .la-meta { font-weight: 600; font-size: 13px; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; margin-top: 12px; }
+  .la-read { font-weight: 400; font-size: 16px; line-height: 1.55; color: var(--text); margin: 12px 0 0; }
+  .la-risk { font-weight: 600; font-size: 14px; color: #ffb020; margin-top: 8px; }
+  .la-evid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px 10px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .la-evid-item { font-weight: 600; font-size: 14px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .la-evid-item.lo { background: #dc2626; color: #fff; padding: 3px 8px; border-radius: 7px; }
+  .la-evid-item.hi { background: #16a34a; color: #fff; padding: 3px 8px; border-radius: 7px; }
+
+  /* LG — now vs last game */
+  .lg-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; padding: 6px 16px 16px; }
+  @media(max-width:720px){ .lg-tables { grid-template-columns: 1fr; } }
+  .lg-table { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .lg-table-title { font-weight: 700; font-size: 17px; color: var(--text); margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 8px; }
+  .lg-table-title span { font-weight: 500; font-size: 14px; color: var(--muted); }
+  .cmp-row { display: grid; grid-template-columns: 84px 1fr 84px; align-items: center; gap: 8px; padding: 4px 0; }
+  .cmp-val { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 18px; white-space: nowrap; }
+  .cmp-val.h { color: var(--home); text-align: left; }
+  .cmp-val.a { color: var(--away); text-align: right; }
+  .cmp-val.win { font-weight: 800; }
+  .cmp-bar { height: 18px; border-radius: 7px; overflow: hidden; display: flex; background: rgba(122,162,255,.18); position: relative; }
+  .cmp-bar .cmp-fill { background: #7AA2FF; height: 100%; }
+  .cmp-bar .cmp-name { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: #EDF2F7; }
+  .lg-arrow { margin-left: 4px; font-weight: 800; }
+  .lg-arrow.up { color: var(--live); } .lg-arrow.down { color: var(--away); }
+
+  /* MM — momentum (head + 2-line chart + First/2nd half advice) */
+  .pro-mm { display: flex; flex-direction: column; }
+  .pro-mm-head { display: flex; gap: 12px; padding: 10px 16px 2px; }
+  .pro-mm-metric { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .pro-mm-val { font-size: 29px; font-weight: 800; color: var(--home); font-variant-numeric: tabular-nums; }
+  .pro-mm-val.tri { color: #16a34a; }
+  .pro-mm-frames { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; padding: 8px 16px 16px; align-items: start; }
+  @media(max-width:720px){ .pro-mm-frames { grid-template-columns: 1fr; } }
+  .pro-mm-left { min-width: 0; }
+  .pro-mm-right { min-width: 0; }
+  .pro-mm-chart { padding: 0; }
+  .pro-chart-legend { display: flex; gap: 16px; margin-bottom: 2px; }
+  .pc-lg { font-size: 14px; font-weight: 700; }
+  .pc-lg.pc-mom { color: var(--home); } .pc-lg.pc-tri { color: #16a34a; }
+  .pc-svg { width: 100%; height: auto; }
+  .pc-line { fill: none; stroke-width: 2; }
+  .pc-line.pc-mom { stroke: var(--home); }
+  .pc-line.pc-tri { stroke: #16a34a; }
+  .pc-dot.pc-mom { fill: var(--home); }
+  .pc-dot.pc-tri { fill: #16a34a; }
+  .pc-tick { font-size: 13px; fill: var(--muted); text-anchor: middle; }
+  .pc-zero { stroke: var(--border); stroke-width: 1; }
+  .pc-ht { stroke: #35425A; stroke-dasharray: 4 3; stroke-width: 1; }
+  .pro-mm-half { padding: 0 0 12px; }
+  .pro-mm-half-title { font-size: 16px; font-weight: 800; color: var(--home); text-transform: uppercase; letter-spacing: .06em; padding: 0 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .pro-mm-advice { display: flex; flex-direction: column; gap: 10px; }
+  .pro-mm-advice-item { display: flex; flex-direction: column; gap: 3px; font-size: 16px; padding: 2px 0; align-items: flex-start; }
+  .pro-mm-advice-item .t { font-weight: 700; }
+  .pro-mm-advice-item.h .t { color: var(--home); }
+  .pro-mm-advice-item.a .t { color: var(--away); }
+  .pro-mm-advice-item .items { display: flex; flex-direction: column; gap: 2px; }
+  .pro-mm-advice-item .i { color: var(--fg); }
+  .pro-mm-advice-item .i::before { content: '· '; color: var(--muted); }
+  .pro-mm-edge { font-size: 13px; font-weight: 800; color: #fff; background: var(--home); border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
+
+  /* archive */
+  .archive-bar { display: flex; justify-content: space-between; align-items: center; margin: 0 0 10px; color: var(--muted); font-size: 17px; }
+  .archive-bar .archive-count { font-weight: 700; color: var(--text); }
+  .archive-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 16px 0 4px; }
+  .archive-pager .pg-btn { padding: 6px 16px; border: 1px solid var(--border); background: var(--card); color: var(--home); border-radius: 8px; font-size: 17px; font-weight: 600; cursor: pointer; }
+  .archive-pager .pg-btn:disabled { color: var(--muted); cursor: default; opacity: .45; }
+  .archive-pager .pg-info { color: var(--muted); font-size: 17px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="casc"><div class="casc-in"><div class="casc-crumb"><a class="casc-brand" href="https://sportstlm.com/">⚽ <b>SPORT</b>STLM</a><span class="casc-sep">›</span><span class="casc-cur">LIVENBA</span></div><nav class="casc-nav"><a href="https://sportstlm.com/">⚽ Football</a><a href="https://lottery.sportstlm.com/">🎰 Lottery</a><a href="https://racing.sportstlm.com/?sport=gallops">🏇 Horse Racing</a><a href="https://racing.sportstlm.com/?sport=greyhounds">🐕 Greyhounds</a><a href="https://ufc.sportstlm.com/">🥊 UFC</a><a href="https://snooker.sportstlm.com/">🎱 Snooker</a><a href="https://nba.sportstlm.com/">🏀 NBA</a><a href="https://nfl.sportstlm.com/">🏈 NFL</a><a href="https://nhl.sportstlm.com/">🏒 NHL</a><a href="https://mlb.sportstlm.com/">⚾ MLB</a><a href="https://tennis.sportstlm.com/">🎾 Tennis</a><a href="https://badminton.sportstlm.com/">🏸 Badminton</a></nav></div></div>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="brand">LIVE<b>NBA</b> <span class="dot">·</span> NBA tech stats</div>
+      <div class="sub" id="sub">PROINRUN · in-running metrics</div>
+    </div>
+  </div>
+
+  <div class="tabbar" id="tabbar"></div>
+
+  <div class="statusbar" id="statusbar">
+    <div class="chip"><span class="live"></span><b id="count">—</b>&nbsp;live now</div>
+    <div class="chip" id="updatedChip">updated —</div>
+  </div>
+
+  <div id="error" class="err" style="display:none"></div>
+
+  <div id="listView"></div>
+  <div id="detailView" style="display:none"></div>
+  <div id="inrunView" style="display:none"></div>
+  <div id="proinrunView" style="display:none"></div>
+  <div id="archiveView" style="display:none"></div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const listEl = $('#listView'), detailEl = $('#detailView'), inrunEl = $('#inrunView'), proinrunEl = $('#proinrunView'), archiveEl = $('#archiveView'), errBox = $('#error');
+const REFRESH_MS = 20000;
+let activeTab = 'proinrun', current = null;
+let ADMIN = false, ADMIN_EMAIL = '';
+let ARCHIVE_DATA = [], PROINRUN_DATA = [], TEAM_ARCHIVE = {};
+let ARCHIVE_PAGE = 1; const ARCHIVE_PER_PAGE = 20;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function showError(m){ errBox.textContent = m; errBox.style.display = 'block'; }
+function clearError(){ errBox.style.display = 'none'; }
+
+function fmtTime(iso){ if(!iso) return ''; const d = new Date(iso); return d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'}); }
+function fmtDay(iso){ if(!iso) return ''; const d = new Date(iso); return d.toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'}); }
+function num(v){ const n = parseFloat(String(v).replace('%','')); return Number.isFinite(n) ? n : null; }
+
+function periodChip(m, cls){
+  if (m.status === 'live') return `<span class="period">${esc(m.period)}${m.clock ? `<span class="min">${esc(m.clock)}</span>` : ''}</span>`;
+  if (m.status === 'finished') return `<span class="period ft">FT</span>`;
+  return `<span class="period up">${fmtTime(m.kickoff)}</span>`;
+}
+
+/* ---------------- Live ---------------- */
+function renderList(matches){
+  clearError();
+  if (!matches.length){ listEl.innerHTML = `<div class="empty">No NBA matches right now.</div>`; return; }
+  let html = `<div class="table-wrap"><table><thead><tr>
+    <th class="c" style="width:80px">Time</th><th>Home</th><th class="c" style="width:110px">Score</th><th>Away</th><th class="c" style="width:100px">Status</th><th class="c" style="width:30px"></th>
+  </tr></thead><tbody>`;
+  let lastDay = null;
+  for (const m of matches){
+    const day = fmtDay(m.kickoff) || 'Upcoming';
+    if (day !== lastDay){ lastDay = day; const c = matches.filter(x => (fmtDay(x.kickoff)||'Upcoming') === day).length; html += `<tr class="day-row"><td colspan="6">${esc(day)}<span class="cnt">${c}</span></td></tr>`; }
+    const score = m.status === 'upcoming' ? `<span class="dash">– : –</span>` : `<span style="color:var(--home)">${esc(m.homeScore||'0')}</span><span class="dash"> : </span><span style="color:var(--away)">${esc(m.awayScore||'0')}</span>`;
+    html += `<tr class="mrow" onclick="showMatch('${esc(m.id)}')">
+      <td class="time c">${esc(fmtTime(m.kickoff))}</td>
+      <td><span class="team h">${esc(m.home)}</span></td>
+      <td class="score">${score}</td>
+      <td><span class="team a">${esc(m.away)}</span></td>
+      <td class="c">${periodChip(m)}</td>
+      <td class="arrow">›</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  listEl.innerHTML = html;
+}
+
+async function refreshList(){
+  try {
+    const r = await fetch('api/live'); const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    $('#count').textContent = (j.matches || []).filter(m => m.status === 'live').length;
+    $('#updatedChip').textContent = 'updated ' + new Date().toLocaleTimeString();
+    renderList(j.matches || []);
+  } catch(e){ showError('Failed to load live list: ' + e.message); }
+}
+
+/* ---------------- stat row helpers (shared) ---------------- */
+function barPct(hn, gn){
+  if (hn == null && gn == null) return null;
+  if (hn == null) return 0; if (gn == null) return 100;
+  const tot = hn + gn; if (tot <= 0) return null; return hn / tot * 100;
+}
+
+/* ---------------- Match (game block) ---------------- */
+function quartersHtml(m){
+  // Q1..Q4 (+OT) for home (q) and away (qa)
+  const labels = ['Q1','Q2','Q3','Q4'];
+  const cells = [];
+  for (let i = 0; i < 4; i++){
+    const hh = (m.q && m.q[i]) || '', aa = (m.qa && m.qa[i]) || '';
+    cells.push(`<div class="qbox"><div class="qh h">${esc(hh || '–')}</div><div class="qh a">${esc(aa || '–')}</div><div class="ql">${labels[i]}</div></div>`);
+  }
+  if (m.ot && parseInt(m.ot) > 0){
+    cells.push(`<div class="qbox"><div class="qh h">–</div><div class="qh a">–</div><div class="ql">OT</div></div>`);
+  }
+  cells.push(`<div class="qbox"><div class="qh h">${esc(m.homeScore || '–')}</div><div class="qh a">${esc(m.awayScore || '–')}</div><div class="ql">T</div></div>`);
+  return `<div class="quarters">${cells.join('')}</div>`;
+}
+
+function statRow(st){
+  const hp = barPct(st.hn, st.gn);
+  const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+  const hraw = st.hRaw && st.hRaw !== st.h ? `<span class="raw">${esc(st.hRaw)}</span>` : '';
+  const graw = st.gRaw && st.gRaw !== st.g ? `<span class="raw">${esc(st.gRaw)}</span>` : '';
+  const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+  return `<div class="stat-row">
+    <span class="v h">${esc(st.h || '–')}${hraw}</span>
+    <div class="bar">${fill}</div>
+    <span class="v a">${esc(st.g || '–')}${graw}</span>
+    <span class="lbl">${esc(st.t)}</span>
+  </div>`;
+}
+
+function playersHtml(players, home, away){
+  const side = (list, name, cls) => {
+    const top = (list || []).slice().sort((a,b) => (num(b.pts)||0) - (num(a.pts)||0)).slice(0, 8);
+    if (!top.length) return `<div class="players-side ${cls}"><div class="ph">${esc(name)}</div><div class="players-empty">No player data</div></div>`;
+    const rows = top.map((p,i) => {
+      const st = [p.reb ? `REB ${p.reb}` : '', p.ast ? `AST ${p.ast}` : '', p.stl ? `STL ${p.stl}` : ''].filter(Boolean).join(' · ');
+      return `<div class="prow"><span class="rk">${i+1}</span><span class="nm">${esc(p.name)}</span><span class="st">${esc(st)}</span><span class="pts">${esc(p.pts || '–')}</span></div>`;
+    }).join('');
+    return `<div class="players-side ${cls}"><div class="ph">${esc(name)}</div>${rows}</div>`;
+  };
+  return `<div class="players">${side(players.home, home, 'h')}${side(players.away, away, 'a')}</div>`;
+}
+
+function renderMatch(m){
+  const st = m.status === 'finished' ? `<span class="status ft">Full Time</span>` : m.status === 'upcoming' ? `<span class="status up">Upcoming</span>` : `<span class="status">${esc(m.period)}${m.clock ? ' · ' + esc(m.clock) : ''}</span>`;
+  let html = `<div class="match">
+    <div class="head">
+      <div class="tm h"><span class="name">${esc(m.home)}</span><span class="meta">Home</span></div>
+      <div class="center"><div class="score">${esc(m.homeScore || '–')} - ${esc(m.awayScore || '–')}</div><div>${st}</div></div>
+      <div class="tm a"><span class="name">${esc(m.away)}</span><span class="meta">Away</span></div>
+    </div>`;
+  html += quartersHtml(m);
+  if (m.tech && m.tech.length){
+    html += `<div class="section-title">Match Tech Statistics</div>`;
+    for (const t of m.tech) html += statRow(t);
+  }
+  if (m.players && ((m.players.home && m.players.home.length) || (m.players.away && m.players.away.length))){
+    html += `<div class="section-title">Top Players</div>`;
+    html += playersHtml(m.players, m.home, m.away);
+  }
+  html += `</div>`;
+  detailEl.innerHTML = html;
+}
+
+async function showMatch(id){
+  current = id;
+  showTab('match');
+  detailEl.innerHTML = `<div class="empty">Loading…</div>`;
+  try {
+    const r = await fetch('api/match?id=' + id); const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    renderMatch(j);
+  } catch(e){ detailEl.innerHTML = `<div class="err">Failed to load match: ${esc(e.message)}</div>`; }
+}
+
+/* ---------------- INRUNNOW ---------------- */
+function inrunCard(m){
+  const rows = (m.tech || []).map(st => {
+    const hp = barPct(st.hn, st.gn);
+    const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+    const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+    return `<div class="inrun-srow">
+      <span class="v h${hwin ? ' win' : ''}">${esc(st.h || '–')}</span>
+      <div class="bar">${fill}<span class="nm">${esc(st.t)}</span></div>
+      <span class="v a${awin ? ' win' : ''}">${esc(st.g || '–')}</span>
+    </div>`;
+  }).join('');
+  return `<div class="inrun-card">
+    <div class="inrun-head">
+      <div class="inrun-teams"><span class="h">${esc(m.home)}</span><span class="sc">${esc(m.homeScore)}–${esc(m.awayScore)}</span><span class="a">${esc(m.away)}</span></div>
+      <div class="inrun-meta"><span class="lg">${esc(m.league)}</span><span class="period">${esc(m.period)}${m.clock ? ' ' + esc(m.clock) : ''}</span></div>
+    </div>
+    <div class="inrun-stats">${rows || '<div class="players-empty">No tech stats yet</div>'}</div>
+  </div>`;
+}
+
+function renderInrun(games){
+  clearError();
+  if (!games.length){ inrunEl.innerHTML = `<div class="empty">No live NBA matches right now.</div>`; return; }
+  inrunEl.innerHTML = games.map(inrunCard).join('');
+}
+
+async function refreshInrun(){
+  try {
+    const r = await fetch('api/inrun'); const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    renderInrun(j.games || []);
+  } catch(e){ showError('Failed to load INRUN: ' + e.message); }
+}
+
+/* ---------------- PROINRUN ---------------- */
+function proSegTab(btn, tab){
+  const card = btn.closest('.pro-card'); if (!card) return;
+  card.querySelectorAll('.pro-seg-tab').forEach(b => b.classList.toggle('active', b === btn));
+  card.querySelectorAll('.pro-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+}
+
+const METRIC_ORDER = ['ACCURACY','MOMENTUM','PRESSING','DOMINANCE','SIDE ATTACKS','SPEED'];
+const METRIC_LABELS = { ACCURACY:'Accuracy', MOMENTUM:'Momentum', PRESSING:'Pressing', DOMINANCE:'Dominance', 'SIDE ATTACKS':'Side Attacks', SPEED:'Speed' };
+const PILLAR_ORDER = ['tactical','defensive','performance','aggressive'];
+const PILLAR_LABELS = { tactical:'Tactical', defensive:'Defensive', performance:'Intensity', aggressive:'Aggressive' };
+const EVIDENCE_ORDER = ['MOM','PRE','POS','ACC','DEF','INT'];
+const EVIDENCE_LABELS = { MOM:'Momentum', PRE:'Pressing', POS:'Possession', ACC:'Accuracy', DEF:'Defensive', INT:'Intensity' };
+const LG_PLAYER_LABELS = { p1:'HMM Players', p2:'Bayes Players', p3:'Unforced Errors', p4:'Bayes Metric' };
+
+function fmtNum(v){
+  if (v == null || !Number.isFinite(v)) return '–';
+  const a = Math.abs(v);
+  if (a >= 100) return String(Math.round(v));
+  if (a >= 1) return String(Math.round(v * 10) / 10);
+  return String(Math.round(v * 100) / 100);
+}
+// Share clamp [10,90] — applied ONLY to DOMINANCE, the one metric that can go negative
+// (DOMINANCE = 1 − raw where raw>1 → negative away → home share > 100%). Other metrics/pillars
+// are left untouched (some legitimately carry signed values).
+const clampShare = p => p == null ? null : Math.max(10, Math.min(90, p));
+
+function mmRow(label, hv, av){
+  const hp = barPct(hv, av);
+  const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+  const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+  return `<div class="pro-row">
+    <span class="v h${hwin ? ' win' : ''}">${fmtNum(hv)}</span>
+    <div class="bar">${fill}<span class="nm">${esc(label)}</span></div>
+    <span class="v a${awin ? ' win' : ''}">${fmtNum(av)}</span>
+  </div>`;
+}
+
+function momentumChartHtml(m){
+  const frames = m.frames || [];
+  const byCp = {};
+  for (const f of frames) byCp[f.checkpoint] = f;
+  const cps = [15, 30, 65].filter(cp => byCp[cp]);
+  if (!cps.length) return '';
+  const pts = [];
+  for (const cp of cps){
+    const f = byCp[cp];
+    const mom = (f.poss_delta != null && Number.isFinite(f.poss_delta)) ? f.poss_delta * 10 : null;
+    const tri = (f.trigger_impact != null && Number.isFinite(f.trigger_impact)) ? f.trigger_impact : null;
+    pts.push({ cp, mom, tri });
+  }
+  const hasMom = pts.some(p => p.mom != null), hasTri = pts.some(p => p.tri != null);
+  if (!hasMom && !hasTri) return '';
+  const maxAbs = key => { let m = 0; for (const p of pts) if (p[key] != null) m = Math.max(m, Math.abs(p[key])); return m || 1; };
+  const mMax = maxAbs('mom'), tMax = maxAbs('tri');
+  const W = 720, H = 150, PAD = 20;
+  const xFor = cp => PAD + (cp / 90) * (W - 2 * PAD);
+  const yFor = v => PAD + ((1 - v) / 2) * (H - 2 * PAD);
+  const zeroY = yFor(0), htX = xFor(45);
+  const path = key => {
+    const maxA = key === 'mom' ? mMax : tMax;
+    const xy = pts.filter(p => p[key] != null).map(p => ({ x: xFor(p.cp), y: yFor(p[key] / maxA) }));
+    if (xy.length < 2) return '';
+    let d = '';
+    for (let i = 0; i < xy.length - 1; i++){
+      const p0 = xy[Math.max(0, i - 1)], p1 = xy[i], p2 = xy[i + 1], p3 = xy[Math.min(xy.length - 1, i + 2)];
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += `M${p1.x.toFixed(1)},${p1.y.toFixed(1)} C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} `;
+    }
+    return d;
+  };
+  const dots = key => { const maxA = key === 'mom' ? mMax : tMax; return pts.filter(p => p[key] != null).map(p => `<circle cx="${xFor(p.cp).toFixed(1)}" cy="${yFor(p[key] / maxA).toFixed(1)}" r="3.2" class="pc-dot pc-${key}"/>`).join(''); };
+  const ticks = cps.map(cp => `<text x="${xFor(cp).toFixed(1)}" y="${H - 4}" class="pc-tick">${CP_LABEL[cp] || cp}</text>`).join('');
+  return `<div class="pro-mm-chart"><div class="pro-chart-legend"><span class="pc-lg pc-mom">— GOAL(S) CREATION MOMENTUM</span><span class="pc-lg pc-tri">— GOAL(S) TRIGGER IMPACTS</span></div><svg class="pc-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="${PAD}" y1="${zeroY.toFixed(1)}" x2="${W - PAD}" y2="${zeroY.toFixed(1)}" class="pc-zero"/><line x1="${htX.toFixed(1)}" y1="${PAD}" x2="${htX.toFixed(1)}" y2="${H - PAD}" class="pc-ht"/>${hasMom ? `<path d="${path('mom')}" class="pc-line pc-mom"/>` : ''}${hasTri ? `<path d="${path('tri')}" class="pc-line pc-tri"/>` : ''}${dots('mom')}${dots('tri')}${ticks}</svg></div>`;
+}
+
+function momentumHtml(m){
+  const a = m.momentum || {};
+  const frames = m.frames || [];
+  const cps = frames.map(f => f.checkpoint).filter(x => x === 15 || x === 30 || x === 65).sort((x, y) => x - y);
+  const pt = a.poss_trend;
+  const momTxt = pt != null ? ((pt > 0 ? '+' : '') + (pt * 10).toFixed(2)) : '—';
+  const tt = a.trigger_trend;
+  const triTxt = tt != null ? ((tt > 0 ? '+' : '') + tt.toFixed(2)) : '—';
+  const liveGame = buildGame(m);
+  const snaps = liveGame ? liveGame.snapshots : {};
+  const adviceFor = (cp, team) => (liveGame && snaps[cp]) ? infer(liveGame, cp, team) : null;
+  const edgeTeam = a.edge ? (a.edge.edge === 'home' ? 'H' : 'A') : null;
+  const edgeBadge = a.edge ? `HAVING EDGE @${CP_LABEL[a.edge.as_of] || a.edge.as_of}` : '';
+  const edgeHalf = a.edge && a.edge.as_of > 45 ? '2' : '1';
+  const renderAdvice = (cp, team, name, half) => {
+    const r = adviceFor(cp, team);
+    if (!r) return '';
+    const badge = (team === edgeTeam && half === edgeHalf) ? `<span class="pro-mm-edge">${esc(edgeBadge)}</span>` : '';
+    const items = (r.nxt || []).slice(0, 3).map(x => `<span class="i">${esc(x)}</span>`).join('');
+    return `<div class="pro-mm-advice-item ${team === 'H' ? 'h' : 'a'}"><span class="t">${esc(name)}</span>${badge}<div class="items">${items}</div></div>`;
+  };
+  const fhCp = cps.filter(c => c <= 45).pop() || cps[0];
+  const shCp = cps.includes(65) ? 65 : null;
+  if (!cps.length) return `<div class="pro-mom-note">Momentum builds as the game crosses quarters (Q1 → Q2 → Q3). ${frames.length}/3 frames captured so far.</div>`;
+  return `<div class="pro-mm">
+    <div class="pro-mm-head"><span class="pro-mm-metric"><span>GOAL(S) CREATION MOMENTUM</span><span class="pro-mm-val">${momTxt}</span></span><span class="pro-mm-metric"><span>GOAL(S) TRIGGER IMPACTS</span><span class="pro-mm-val tri">${triTxt}</span></span></div>
+    <div class="pro-mm-frames">
+      <div class="pro-mm-left">${momentumChartHtml(m)}</div>
+      <div class="pro-mm-right">
+        <div class="pro-mm-half">
+          <div class="pro-mm-half-title">First half (1Q-2Q)</div>
+          <div class="pro-mm-advice">${fhCp ? renderAdvice(fhCp, 'H', m.home, '1') : ''}${fhCp ? renderAdvice(fhCp, 'A', m.away, '1') : ''}</div>
+        </div>
+        <div class="pro-mm-half">
+          <div class="pro-mm-half-title">2nd half (3Q)</div>
+          <div class="pro-mm-advice">${shCp ? renderAdvice(shCp, 'H', m.home, '2') : ''}${shCp ? renderAdvice(shCp, 'A', m.away, '2') : ''}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function mmHtml(m){ return momentumHtml(m); }
+
+const PRO_STATS = [
+  ['Field Goals Made', 'Shots on Goal'], ['Field Goals Missed', 'Shots off Goal'], ['Field Goal', 'Total Shots'],
+  ['Free Throw', 'Free Kicks'], ['Offensive Rebounds', 'Corner Kicks'], ['Blocks', 'Blocked Shots'],
+  ['Offensive Possession', 'Ball Possession'], ['Pass Volume', 'Total Passes'], ['Personal Fouls', 'Yellow Cards'],
+  ['Ejections', 'Red Cards'],
+];
+
+function stHtml(m){
+  const e = m.engine;
+  const ir = (e && e.inrun) || { home: {}, away: {} };
+  let html = `<div class="pro-stats"><div class="pro-col"><div class="pro-col-title">Statistics</div>`;
+  for (const [label, key] of PRO_STATS){
+    const hn = (ir.home[key] == null || ir.home[key] === '') ? null : Number(ir.home[key]);
+    const an = (ir.away[key] == null || ir.away[key] === '') ? null : Number(ir.away[key]);
+    const isPct = key === 'Ball Possession';
+    const isWhole = key === 'Total Passes';
+    const hstr = hn == null ? '–' : ((isPct || isWhole) ? String(Math.round(hn)) : (hn > 0 && hn < 1 ? '–' : fmtNum(hn)));
+    const astr = an == null ? '–' : ((isPct || isWhole) ? String(Math.round(an)) : (an > 0 && an < 1 ? '–' : fmtNum(an)));
+    const hp = barPct(hn, an);
+    const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+    const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+    html += `<div class="pro-row"><span class="v h${hwin ? ' win' : ''}">${hstr}</span><div class="bar">${fill}<span class="nm">${esc(label)}</span></div><span class="v a${awin ? ' win' : ''}">${astr}</span></div>`;
+  }
+  html += `</div><div class="pro-col"><div class="pro-col-title">Live Statistics</div>`;
+  if (e){
+    for (const k of METRIC_ORDER){
+      // Only DOMINANCE can go negative (1 − raw, raw>1) and needs the share clamp.
+      const hp = k === 'DOMINANCE'
+        ? clampShare(barPct(e.metrics.home[k], e.metrics.away[k]))
+        : barPct(e.metrics.home[k], e.metrics.away[k]);
+      const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+      const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+      html += `<div class="pro-row"><span class="v h${hwin ? ' win' : ''}">${hp == null ? '–' : Math.round(hp) + '%'}</span><div class="bar">${fill}<span class="nm">${esc(METRIC_LABELS[k])}</span></div><span class="v a${awin ? ' win' : ''}">${hp == null ? '–' : Math.round(100 - hp) + '%'}</span></div>`;
+    }
+    for (const k of PILLAR_ORDER){
+      const hp = barPct(e.pillars.home[k], e.pillars.away[k]);
+      const hwin = hp != null && hp > 50, awin = hp != null && hp < 50;
+      const fill = hp == null ? '' : `<span class="seg-h" style="width:${hp.toFixed(1)}%"></span>`;
+      html += `<div class="pro-row"><span class="v h${hwin ? ' win' : ''}">${hp == null ? '–' : Math.round(hp) + '%'}</span><div class="bar">${fill}<span class="nm">${esc(PILLAR_LABELS[k])}</span></div><span class="v a${awin ? ' win' : ''}">${hp == null ? '–' : Math.round(100 - hp) + '%'}</span></div>`;
+    }
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+/* ============ Tactical narrative engine (ported verbatim from engine.ts) ============ */
+const STATS = ['ACC','MOM','PRE','DOM','SID','SPD','POS','SPL','TAC','DEF','INT','AGG'];
+const ENAME = { ACC:'Accuracy', MOM:'Momentum', PRE:'Pressing', DOM:'Dominance', SID:'Side Attacks', SPD:'Speed', POS:'Possession', SPL:'Split', TAC:'Tactical', DEF:'Defensive', INT:'Intensity', AGG:'Aggressive' };
+const RANK = { VL:0, L:1, E:2, H:3, VH:4 };
+const CPS = [15,30,65];
+const CONF = { 15:0.6, 30:0.8, 65:1.0 };
+const ARROW = { RISING:'↑', FALLING:'↓', STABLE:'→', REVERSING:'↺', NA:'·' };
+const AGENDA_ICON = { ESCALATE:'⚡', PENETRATE:'🗡️', PRESS_HIGH:'🔥', DICTATE:'🎼', ABSORB_THEN_COUNTER:'🪤', COUNTER:'↗️', COMPACT:'🛡️', SURVIVE:'🚨', PROTECT_LEAD:'🔒', CHASE:'🏃', RECALIBRATE:'🔧', MAINTAIN_SHAPE:'🧱', ADAPT:'🔄', ATTACK_WITH_CAUTION:'⚠️', REGROUP:'🧭', MAINTAIN:'⚖️' };
+
+const RULES = [
+  { id:'R01', name:'Attack Escalation', side:'both', cps:[15,30,65],
+    when:[['self.MOM','>=','H'],['self.PRE','>=','E'],['score','!=','LEADING']], boost:[['self.MOM~','==','RISING'],['self.PRE~','==','RISING']],
+    state:'ATTACK', agenda:'ESCALATE', risk:null,
+    read:'{T} is leaning decisively into the contest: initiative ({MOM}%) and pressing ({PRE}%) move in concert, the signature of a side that has elected to dictate the terms of engagement rather than receive them.',
+    nxt:['Sustain territorial pressure','Commit more bodies beyond the ball','Test {O} with repeated entries'] },
+  { id:'R02', name:'Sterile Control', side:'both', cps:[15,30,65],
+    when:[['self.POS','>=','H'],['self.ACC','<=','E']], boost:[['self.POS~','==','RISING']],
+    state:'STERILE', agenda:'PENETRATE', risk:'TERRITORY_WITHOUT_RETURN',
+    read:'{T} owns the canvas ({POS}% possession) yet the final brushstroke is missing (accuracy {ACC}%): control is being accumulated faster than danger, a calm sea of territory without a decisive wave.',
+    nxt:['Probe patiently for the gap','Lift penetration through wide or vertical entries','Beware frustration-led turnovers'] },
+  { id:'R03', name:'Attack Exposure', side:'both', cps:[15,30,65],
+    when:[['self.MOM','>=','H'],['self.DEF','<=','L'],['opp.INT','>=','H']], boost:[['self.MOM~','==','RISING'],['self.DEF~','==','FALLING']],
+    state:'EXPOSED', agenda:'ATTACK_WITH_CAUTION', risk:'TRANSITION_CONCESSION',
+    read:'{T} pushes forward with conviction (initiative {MOM}%) while its defensive screen runs thin ({DEF}%), and {O} carries the energy to exploit it (intensity {o_INT}%): the attack is being funded with borrowed security.',
+    nxt:['Keep pressing but leave less space behind','Expect {O} to spring on turnovers','Any lost duel becomes a danger moment'] },
+  { id:'R04', name:'Reactive Strike', side:'both', cps:[15,30,65],
+    when:[['self.MOM','<=','L'],['self.INT','>=','H'],['self.AGG','>=','H']], boost:[['self.INT~','==','RISING']],
+    state:'COUNTER', agenda:'ABSORB_THEN_COUNTER', risk:null,
+    read:'{T} has ceded the initiative (momentum {MOM}%) but not the intent: intensity ({INT}%) and aggression ({AGG}%) describe a coiled, press-and-spring posture, content to let {O} build before striking into the space it leaves behind.',
+    nxt:['Compact and win the duels','Release quickly on the turnover','Punish {O} on the break'] },
+  { id:'R05', name:'Low-Block Absorption', side:'both', cps:[15,30,65],
+    when:[['self.POS','<=','L'],['self.DEF','>=','H'],['opp.MOM','>=','H']], boost:[['self.DEF~','==','RISING']],
+    state:'SHIELD', agenda:'COMPACT', risk:null,
+    read:'{T} has withdrawn into a disciplined shell (possession {POS}%, defensive {DEF}%) while {O} sets the tempo (momentum {o_MOM}%): a deliberate act of absorption, trading territory for solidity.',
+    nxt:['Hold the shape and deny central access','Concede the flanks before the centre','Wait for a turnover to break'] },
+  { id:'R06', name:'Siege Collapse Risk', side:'both', cps:[15,30,65],
+    when:[['self.DEF','<=','L'],['opp.MOM','>=','H'],['self.INT','<=','E']], boost:[['self.DEF~','==','FALLING'],['opp.PRE','>=','E']],
+    state:'COLLAPSING', agenda:'SURVIVE', risk:'GOAL_CONCESSION',
+    read:'{T} defensive resistance has thinned to {DEF}% against {O} initiative ({o_MOM}%): the shield is fraying under sustained weight, and the next lapse threatens to be costly.',
+    nxt:['Drop the line and protect the paint','Accept pressure, avoid fouls near the basket','Substitutions likely defensive'] },
+  { id:'R07H', name:'Protect Lead (Home)', side:'H', cps:[30,65],
+    when:[['score','==','LEADING'],['self.DEF','>=','H'],['self.MOM','<=','E']], boost:[['self.MOM~','==','FALLING']],
+    state:'PROTECT', agenda:'PROTECT_LEAD', risk:null,
+    read:'{T} is shifting from authorship to stewardship: with the lead in hand, defensive structure ({DEF}%) outweighs attacking ambition ({MOM}%), the grammar of game management.',
+    nxt:['Slow the tempo','Keep shape, reduce risk','Counter only when clearly on'] },
+  { id:'R07A', name:'Protect Lead (Away)', side:'A', cps:[30,65],
+    when:[['score','==','LEADING'],['self.DEF','>=','E'],['self.POS','<=','E']], boost:[['self.MOM~','==','FALLING']],
+    state:'PROTECT', agenda:'PROTECT_LEAD', risk:null,
+    read:'{T} is banking the road lead the old-fashioned way: possession surrendered ({POS}%), structure intact ({DEF}%), content to turn the match into a waiting game.',
+    nxt:['Sit deeper, protect the paint','Use the counter as relief','Manage the clock'] },
+  { id:'R08H', name:'Chase The Game (Home)', side:'H', cps:[30,65],
+    when:[['score','==','TRAILING'],['self.MOM','>=','E']], boost:[['self.MOM~','==','RISING'],['self.PRE','>=','H']],
+    state:'ATTACK', agenda:'CHASE', risk:'TRANSITION_CONCESSION',
+    read:'{T} is trailing and the data shows it refusing the scoreboard: initiative ({MOM}%) and pressing ({PRE}%) say the scoreline is unacceptable, and risk is being priced in.',
+    nxt:['Raise tempo and territory','Add attackers, accept risk','Three-point attempts rise'] },
+  { id:'R08A', name:'Chase The Game (Away)', side:'A', cps:[30,65],
+    when:[['score','==','TRAILING'],['self.MOM','>=','E'],['self.PRE','>=','E']], boost:[['self.MOM~','==','RISING']],
+    state:'ATTACK', agenda:'CHASE', risk:'TRANSITION_CONCESSION',
+    read:'{T} is chasing on the road: with momentum ({MOM}%) and pressing ({PRE}%) both live, the visitors are reaching for the equaliser rather than waiting for it.',
+    nxt:['Push the line higher','Go direct to cut the clock','Leave transition room behind'] },
+  { id:'R09', name:'Stalled Chase', side:'both', cps:[30,65],
+    when:[['score','==','TRAILING'],['self.MOM','<=','L']], boost:[['self.MOM~','==','FALLING']],
+    state:'STALLED', agenda:'REGROUP', risk:'LACK_OF_THREAT',
+    read:'{T} is behind but the machinery of pursuit is idling (momentum {MOM}%): need exceeds capacity, a trailing side without a pulse.',
+    nxt:['Structural change or substitution to find a spark','Risk of conceding a bigger run','Need stops to regain a foothold'] },
+  { id:'R10', name:'Wing Penetration', side:'both', cps:[15,30,65],
+    when:[['self.SID','>=','H'],['self.SPD','>=','H']], boost:[['self.ACC','>=','E']],
+    state:'PENETRATION', agenda:'PENETRATE', risk:null,
+    read:'{T} is stretching the floor: side attacks ({SID}%) fused with tempo ({SPD}%) form a rhythmic assault on the wings, forcing {O} to defend width as well as depth.',
+    nxt:['Overload the wide channels','Deliveries into the paint','Cut-backs and second chances'] },
+  { id:'R11', name:'Press Engine', side:'both', cps:[15,30,65],
+    when:[['self.PRE','>=','E'],['self.INT','>=','H'],['self.AGG','>=','H']], boost:[['self.INT~','==','RISING'],['self.AGG~','==','RISING']],
+    state:'PRESSURE', agenda:'PRESS_HIGH', risk:'FATIGUE_COST',
+    read:'{T} has switched on the engine room: pressing ({PRE}%), intensity ({INT}%) and aggression ({AGG}%) rise together, an organised effort to suffocate {O} before it breathes.',
+    nxt:['Win the ball high','Force errors in build-up','Watch the fatigue and foul cost'] },
+  { id:'R12', name:'Momentum Fade', side:'both', cps:[30,65],
+    when:[['self.MOM~','==','FALLING'],['self.PRE~','==','FALLING']], boost:[],
+    state:'FADING', agenda:'RECALIBRATE', risk:'LOSS_OF_CONTROL',
+    read:'{T} attacking tide is receding: momentum ({MOM}%{t_MOM}) and pressing ({PRE}%{t_PRE}) slip together, the early wave is losing force and a re-set is due.',
+    nxt:['Re-set the block','Tempo drops','Opponent gets freedom to step up'] },
+  { id:'R13', name:'Structured Block', side:'both', cps:[15,30,65],
+    when:[['self.TAC','>=','H'],['self.DEF','>=','H']], boost:[],
+    state:'SHIELD', agenda:'MAINTAIN_SHAPE', risk:null,
+    read:'{T} presents a coherent, well-drilled structure: tactical order ({TAC}%) married to defensive solidity ({DEF}%), a team playing by blueprint, patient and compact.',
+    nxt:['Stay patient in shape','Wait for the scripted trigger','Few unforced risks'] },
+  { id:'R14', name:'Structural Shift (overlay)', side:'both', cps:[30,65], overlay:true,
+    when:[['d.TAC','>=',15]], boost:[],
+    state:'RESHAPING', agenda:'ADAPT', risk:null,
+    read:'{T} tactical signature is in motion (tactical share {TAC}%, moved {sdTAC} pts): evidence of reorganisation, a changed shape, role or plan.',
+    nxt:['Expect a different structure to the one first seen'] },
+  { id:'R15', name:'Transition Threat', side:'both', cps:[15,30,65],
+    when:[['self.POS','<=','L'],['self.SPD','>=','E'],['self.INT','>=','E']], boost:[['self.SPD~','==','RISING']],
+    state:'COUNTER', agenda:'COUNTER', risk:null,
+    read:'{T} concedes the ball ({POS}%) yet keeps its legs in the contest (speed {SPD}%, intensity {INT}%): a team content to be second in possession while first in the transition.',
+    nxt:['Hold shape without the ball','Fast release on turnovers','Target the space behind {O} defense'] },
+  { id:'R16', name:'Dominant Control', side:'both', cps:[15,30,65],
+    when:[['self.MOM','>=','H'],['self.POS','>=','H'],['self.INT','>=','E']], boost:[['self.MOM~','==','RISING']],
+    state:'CONTROL', agenda:'DICTATE', risk:null,
+    read:'{T} is conducting the orchestra: initiative ({MOM}%) joined with possession ({POS}%) and sustained energy (intensity {INT}%), control used as a form of pressure.',
+    nxt:['Keep the ball and the tempo','Probe until the structure gives','Rest-defence matters'] },
+];
+
+const FALLBACK = { id:'R00', name:'Balanced Envelope', side:'both', cps:CPS, when:[], boost:[], state:'BALANCED', agenda:'MAINTAIN', risk:null,
+  read:'{T} sits within an even-handed statistical envelope: no decisive tactical signature separates it from {O}, so the data does not argue for a change of behaviour.',
+  nxt:['Continue current approach','Await a clearer signal'] };
+
+const OPS = { '>=':(a,b)=>a>=b, '<=':(a,b)=>a<=b, '>':(a,b)=>a>b, '<':(a,b)=>a<b, '==':(a,b)=>a===b, '!=':(a,b)=>a!==b };
+const band = x => x<35?0 : x<45?1 : x<=55?2 : x<=65?3 : 4;
+const tlabel = d => d>=4?'RISING' : d<=-4?'FALLING' : 'STABLE';
+
+function ev(c, ctx){
+  const [key, op, val] = c;
+  if ((key.startsWith('self.') || key.startsWith('opp.')) && !key.endsWith('~')) return OPS[op](band(ctx[key]), RANK[val]);
+  return OPS[op](ctx[key], val);
+}
+function fire(rule, ctx){
+  if (!rule.cps.includes(ctx.cp)) return null;
+  if (rule.side !== 'both' && rule.side !== ctx.team) return null;
+  if (!rule.when.every(c => ev(c, ctx))) return null;
+  const boosts = rule.boost.filter(c => ev(c, ctx)).length;
+  let sat = false;
+  for (const c of rule.when){
+    if ((c[0].startsWith('self.') || c[0].startsWith('opp.')) && !c[0].endsWith('~')){
+      const v = ctx[c[0]]; if (v <= 5 || v >= 95) sat = true;
+    }
+  }
+  const w = CONF[ctx.cp] * (1 + 0.1*rule.when.length) * (1 + 0.5*boosts) * (sat ? 0.5 : 1.0);
+  return { rule, w, boosts, sat };
+}
+function fmt(template, game, team, ctx){
+  const d = { T: team==='H' ? game.home : game.away, O: team==='H' ? game.away : game.home };
+  for (const s of STATS){
+    d[s] = Math.round(ctx['self.'+s]);
+    d['o_'+s] = Math.round(ctx['opp.'+s]);
+    d['t_'+s] = ARROW[ctx['self.'+s+'~']];
+    const sd = Math.round(ctx['sd.'+s]);
+    d['sd'+s] = (sd >= 0 ? '+' : '') + sd;
+  }
+  return template.replace(/\{(\w+)\}/g, (m, k) => d[k] != null ? String(d[k]) : m);
+}
+function makeCtx(game, cp, team, scoreOverride){
+  const S = game.snapshots;
+  const mins = CPS.filter(m => m <= cp);
+  const ctx = { cp, team };
+  for (const s of STATS){
+    const ser = {};
+    for (const m of mins) if (S[m]) ser[m] = team==='H' ? S[m][s] : 100 - S[m][s];
+    const v = ser[cp] != null ? ser[cp] : 50;
+    ctx['self.'+s] = v;
+    ctx['opp.'+s] = 100 - v;
+    let t, d;
+    const diff = (a,b) => (ser[a]!=null && ser[b]!=null) ? ser[a]-ser[b] : 0;
+    if (cp === 15){ t='NA'; d=0; }
+    else if (cp === 30){ d = diff(30,15); t = tlabel(d); }
+    else { const d1 = diff(30,15); d = diff(65,30); t = (Math.abs(d1)>=3 && Math.abs(d)>=3 && d1*d<0) ? 'REVERSING' : tlabel(d); }
+    ctx['self.'+s+'~'] = t;
+    ctx['d.'+s] = Math.abs(d);
+    ctx['sd.'+s] = d;
+  }
+  // basketball has no discrete goals — derive score from the frame's home/away score
+  const sc = game.scores && game.scores[cp];
+  const [h, a] = sc || [0, 0];
+  const [own, opp] = team==='H' ? [h, a] : [a, h];
+  let margin = own - opp;
+  let score = margin > 0 ? 'LEADING' : margin < 0 ? 'TRAILING' : 'LEVEL';
+  if (scoreOverride){ score = scoreOverride; margin = ({LEADING:1,LEVEL:0,TRAILING:-1})[scoreOverride]; }
+  ctx.score = score; ctx.margin = margin;
+  return ctx;
+}
+function infer(game, cp, team, scoreOverride){
+  const ctx = makeCtx(game, cp, team, scoreOverride);
+  const fired = RULES.map(r => fire(r, ctx)).filter(Boolean);
+  const main = fired.filter(f => !f.rule.overlay).sort((a,b) => b.w - a.w);
+  const overlays = fired.filter(f => f.rule.overlay);
+  const top = main[0] || null;
+  const r = top ? top.rule : FALLBACK;
+  return {
+    team, cp, score: ctx.score, margin: ctx.margin,
+    state: r.state, agenda: r.agenda, rule: r.id, ruleName: r.name,
+    risk: main.filter(x => x.rule.risk).map(x => x.rule.risk),
+    overlays: overlays.map(x => x.rule.name),
+    conviction: top ? Math.min(1.0, top.w / 2.0) : 0.2,
+    saturated: !!(top && top.sat),
+    read: fmt(r.read, game, team, ctx),
+    nxt: r.nxt.map(n => fmt(n, game, team, ctx)),
+    trend: Object.fromEntries(STATS.map(s => [s, ctx['self.'+s+'~']])),
+    vals: Object.fromEntries(STATS.map(s => [s, ctx['self.'+s]])),
+  };
+}
+function buildGame(g){
+  const snapshots = {}, scores = {};
+  const share = (hv, av) => { if (hv==null || av==null) return 50; const tot = Number(hv)+Number(av); if (!(tot>0)) return 50; return Math.max(0, Math.min(100, Number(hv)/tot*100)); };
+  for (const f of (g.frames || [])){
+    const cp = String(f.checkpoint);
+    const s = {};
+    const m = f.metrics || {};
+    const mv = (k) => m[k] ? { h: m[k].home, a: m[k].away } : { h: null, a: null };
+    const p = f.pillars || {};
+    const pv = (k) => p[k] ? { h: p[k].home, a: p[k].away } : { h: null, a: null };
+    let mm = mv('ACCURACY'); s.ACC = share(mm.h, mm.a);
+    mm = mv('MOMENTUM'); s.MOM = share(mm.h, mm.a);
+    mm = mv('PRESSING'); s.PRE = share(mm.h, mm.a);
+    mm = mv('DOMINANCE'); s.DOM = share(mm.h, mm.a);
+    mm = mv('SIDE ATTACKS'); s.SID = share(mm.h, mm.a);
+    mm = mv('SPEED'); s.SPD = share(mm.h, mm.a);
+    const posH = (f.stats && f.stats['Ball Possession'] && f.stats['Ball Possession'].home);
+    s.POS = posH != null ? Number(posH) : 50;
+    s.SPL = (f.split && f.split.home) != null ? f.split.home : 50;
+    let pp = pv('tactical'); s.TAC = share(pp.h, pp.a);
+    pp = pv('defensive'); s.DEF = share(pp.h, pp.a);
+    pp = pv('performance'); s.INT = share(pp.h, pp.a);
+    pp = pv('aggressive'); s.AGG = share(pp.h, pp.a);
+    snapshots[cp] = s;
+    scores[cp] = [Number(f.home_score) || 0, Number(f.away_score) || 0];
+  }
+  if (Object.keys(snapshots).length === 0) return null;
+  return { snapshots, scores, home: g.home, away: g.away };
+}
+const CP_LABEL = { 15:'Q1', 30:'Q2', 65:'Q3' };
+
+function laCard(r, m){
+  const teamName = r.team === 'H' ? m.home : m.away;
+  const cls = r.team === 'H' ? 'home' : 'away';
+  const agenda = (AGENDA_ICON[r.agenda] || '') + ' ' + r.agenda.replace(/_/g,' ').toLowerCase();
+  const meta = Math.round(r.conviction*100) + '% conviction · ' + r.score.toLowerCase();
+  const risk = r.risk.length ? `<div class="la-risk">Risk · ${r.risk.map(x => x.replace(/_/g,' ').toLowerCase()).join(' · ')}</div>` : '';
+  const evid = ['MOM','PRE','POS','ACC','DEF','INT'].map(s => {
+    const v = Math.round(r.vals[s]);
+    const c = v < 30 ? ' lo' : v > 60 ? ' hi' : '';
+    return `<span class="la-evid-item${c}">${ENAME[s]} ${v}%${ARROW[r.trend[s]] || ''}</span>`;
+  }).join('');
+  return `<div class="la-card ${cls}">
+    <div class="la-card-top"><span class="la-team">${esc(teamName)}</span><span class="la-agenda">${esc(agenda)}</span><span class="la-state">${esc(r.state)}</span></div>
+    <div class="la-meta">${esc(meta)}</div>
+    <p class="la-read">${esc(r.read)}</p>
+    ${risk}
+    <div class="la-evid">${evid}</div>
+  </div>`;
+}
+
+function laHtml(m){
+  const lg = buildGame(m);
+  if (!lg) return `<div class="pro-player-empty">Live Analysis needs at least one captured checkpoint (Q1/Q2/Q3).</div>`;
+  const analysis = CPS.slice().reverse().filter(cp => lg.snapshots[String(cp)]).map(cp => {
+    const frame = (m.frames || []).find(f => f.checkpoint === cp);
+    return { cp, hs: frame ? frame.home_score : 0, as: frame ? frame.away_score : 0, home: infer(lg, cp, 'H'), away: infer(lg, cp, 'A') };
+  });
+  if (!analysis.length) return `<div class="pro-player-empty">Live Analysis needs at least one captured checkpoint (Q1/Q2/Q3).</div>`;
+  return `<div class="inrun-analysis">${analysis.map(a => `<div class="la-cp">
+    <div class="la-cp-head"><span class="la-cp-tick">${CP_LABEL[a.cp] || a.cp}</span><span class="la-cp-score">${esc(a.hs)}–${esc(a.as)}</span></div>
+    <div class="la-cards">${laCard(a.home, m)}${laCard(a.away, m)}</div>
+  </div>`).join('')}</div>`;
+}
+
+/* ----- LG: now vs last game (6 flows + 4 player metrics) ----- */
+const _d = (a, b) => (a != null && b != null && b !== 0) ? a / b : null;
+const f5 = (A, B, C, D, E) => { const r1 = _d(B, C), r2 = _d(D, E); if (A == null || r1 == null || r2 == null) return null; return A * r1 * r2 / 5; };
+const f5x20 = (A, B, C, D, E) => { const v = f5(A, B, C, D, E); return v == null ? null : v * 20; };
+function top5Pts(list){ return (list || []).map(p => { const v = parseFloat(p && p.pts); return Number.isFinite(v) ? v : null; }).filter(v => v != null).sort((a, b) => b - a).slice(0, 5); }
+
+function lgTable(m, side){
+  const name = side === 'home' ? m.home : m.away;
+  const cls = side === 'home' ? 'home' : 'away';
+  const e = m.engine; if (!e) return '';
+  const ev = e.evidence[side] || {};
+  const arch = TEAM_ARCHIVE[name] || {};
+  const lastEv = arch.evidence || {};
+  const nowTop5 = top5Pts(m.players && m.players[side]);
+  const lastTop5 = arch.top5 || [];
+  const rows = [
+    ...['MOM','PRE','POS','ACC','DEF','INT'].map(c => ({ label: EVIDENCE_LABELS[c], now: ev[c], lg: lastEv[c], pct: true })),
+    { label:'p1 · HMM players', now: f5x20(nowTop5[0], nowTop5[4], nowTop5[1], nowTop5[3], nowTop5[2]), lg: f5x20(lastTop5[0], lastTop5[4], lastTop5[1], lastTop5[3], lastTop5[2]), pct:false },
+    { label:'p2 · Bayes players', now: f5x20(nowTop5[4], nowTop5[1], nowTop5[3], nowTop5[2], nowTop5[0]), lg: f5x20(lastTop5[4], lastTop5[1], lastTop5[3], lastTop5[2], lastTop5[0]), pct:false },
+    { label:'p3 · Unforced Errors', now: f5(ev.INT, ev.ACC, ev.PRE, ev.DEF, ev.POS), lg: f5(lastEv.INT, lastEv.ACC, lastEv.PRE, lastEv.DEF, lastEv.POS), pct:false },
+    { label:'p4 · Bayes metric', now: f5(ev.PRE, ev.POS, ev.INT, ev.ACC, ev.DEF), lg: f5(lastEv.PRE, lastEv.POS, lastEv.INT, lastEv.ACC, lastEv.DEF), pct:false },
+  ];
+  const fmtLg = (n, pct) => n == null ? '–' : (pct ? Math.round(n) + '%' : Number(n).toFixed(1));
+  const body = rows.map((r, i) => {
+    const share = (r.now != null && r.lg != null && (r.now + r.lg) > 0) ? r.now / (r.now + r.lg) * 100 : null;
+    const win = share != null ? (share > 50 ? 'n' : share < 50 ? 'l' : '') : '';
+    const inv = /unforced/i.test(r.label);
+    const arrow = (r.now != null && r.lg != null && r.now !== r.lg) ? (((r.now > r.lg) !== inv) ? '<span class="lg-arrow up">▲</span>' : '<span class="lg-arrow down">▼</span>') : '';
+    return `<div class="cmp-row" key="${i}">
+      <span class="cmp-val h${win === 'n' ? ' win' : ''}">${fmtLg(r.now, r.pct)}${arrow}</span>
+      <div class="cmp-bar">${share != null ? `<span class="cmp-fill" style="width:${share}%"></span>` : ''}<span class="cmp-name">${esc(r.label)}</span></div>
+      <span class="cmp-val a${win === 'l' ? ' win' : ''}">${fmtLg(r.lg, r.pct)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="lg-table ${cls}"><div class="lg-table-title">${esc(name)}<span>now vs last game</span></div>${body}</div>`;
+}
+
+function lgHtml(m){
+  const e = m.engine; if (!e) return `<div class="pro-player-empty">No data yet</div>`;
+  return `<div class="lg-tables">${lgTable(m, 'home')}${lgTable(m, 'away')}</div>`;
+}
+
+function proCard(m){
+  const pSide = (list, name, cls) => {
+    const top = (list || []).slice().sort((a,b) => (num(b.pts)||0) - (num(a.pts)||0)).slice(0, 5);
+    if (!top.length) return `<div class="pro-players-side ${cls}"><div class="pro-players-head">${esc(name)}</div><div class="pro-player-empty">No player data</div></div>`;
+    const rows = top.map((p,i) => `<div class="pro-player-row"><span class="pro-player-rank">${i+1}</span><span class="pro-player-name">${esc(p.name)}</span><span class="pro-player-sub">${esc(p.reb ? p.reb+' REB · ' : '')}${esc(p.ast ? p.ast+' AST' : '')}</span><span class="pro-player-rating">${esc(p.pts || '–')}</span></div>`).join('');
+    return `<div class="pro-players-side ${cls}"><div class="pro-players-head">${esc(name)}</div>${rows}</div>`;
+  };
+  const players = `<div class="pro-players">${pSide(m.players && m.players.home, m.home, 'h')}${pSide(m.players && m.players.away, m.away, 'a')}</div>`;
+
+  return `<div class="pro-card">
+    <div class="pro-sb">
+      <div class="pro-teams"><span class="pro-side h">${esc(m.home)}</span><span class="pro-score">${esc(m.homeScore)}–${esc(m.awayScore)}</span><span class="pro-side a">${esc(m.away)}</span></div>
+      <div class="pro-meta"><span class="pro-status">${esc(m.period)}${m.clock ? ' · ' + esc(m.clock) : ''}</span><span class="pro-league">${esc(m.league)}</span></div>
+    </div>
+    <div class="pro-seg">
+      <button class="pro-seg-tab seg-st active" onclick="proSegTab(this,'st')">ST</button>
+      <button class="pro-seg-tab seg-mm" onclick="proSegTab(this,'mm')">MM</button>
+      <button class="pro-seg-tab seg-tp" onclick="proSegTab(this,'tp')">TP</button>
+      <button class="pro-seg-tab seg-la" onclick="proSegTab(this,'la')">LA</button>
+      <button class="pro-seg-tab seg-lg" onclick="proSegTab(this,'lg')">LG</button>
+    </div>
+    <div class="pro-tab active" data-tab="st">${stHtml(m)}</div>
+    <div class="pro-tab" data-tab="mm">${mmHtml(m)}</div>
+    <div class="pro-tab" data-tab="tp">${players}</div>
+    <div class="pro-tab" data-tab="la">${laHtml(m)}</div>
+    <div class="pro-tab" data-tab="lg">${lgHtml(m)}</div>
+  </div>`;
+}
+
+function renderProinrun(games){
+  clearError();
+  if (!games.length){ proinrunEl.innerHTML = `<div class="empty">No live NBA matches right now.</div>`; return; }
+  proinrunEl.innerHTML = games.map(proCard).join('');
+}
+
+async function refreshProinrun(){
+  try {
+    const r = await fetch('api/inrun'); const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    PROINRUN_DATA = j.games || [];
+    TEAM_ARCHIVE = j.teams || {};
+    renderProinrun(PROINRUN_DATA);
+  } catch(e){ showError('Failed to load PROINRUN: ' + e.message); }
+}
+
+/* ---------------- Archive ---------------- */
+function renderArchive(){
+  clearError();
+  if (!ARCHIVE_DATA.length){ archiveEl.innerHTML = `<div class="empty">No finished NBA games archived yet.</div>`; return; }
+  const total = ARCHIVE_DATA.length;
+  const pages = Math.max(1, Math.ceil(total / ARCHIVE_PER_PAGE));
+  if (ARCHIVE_PAGE > pages) ARCHIVE_PAGE = pages;
+  if (ARCHIVE_PAGE < 1) ARCHIVE_PAGE = 1;
+  const start = (ARCHIVE_PAGE - 1) * ARCHIVE_PER_PAGE;
+  const slice = ARCHIVE_DATA.slice(start, start + ARCHIVE_PER_PAGE);
+  let html = `<div class="archive-bar"><span class="archive-count">${total} finished games</span><span>Page ${ARCHIVE_PAGE} of ${pages}</span></div>`;
+  html += `<div class="table-wrap"><table><thead><tr>
+    <th class="c" style="width:60px">Status</th><th>Home</th><th class="c" style="width:80px">Score</th><th>Away</th><th>League</th><th class="c" style="width:30px"></th>
+  </tr></thead><tbody>`;
+  for (const m of slice){
+    html += `<tr class="mrow" onclick="showArchiveGame('${esc(m.id)}')">
+      <td class="time c">FT</td>
+      <td><span class="team h">${esc(m.home)}</span></td>
+      <td class="score"><span style="color:var(--home)">${esc(m.homeScore)}</span> <span class="dash">–</span> <span style="color:var(--away)">${esc(m.awayScore)}</span></td>
+      <td><span class="team a">${esc(m.away)}</span></td>
+      <td style="color:var(--muted)">${esc(m.league)}</td>
+      <td class="arrow">›</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  html += `<div class="archive-pager">
+    <button class="pg-btn" onclick="archiveGo(${ARCHIVE_PAGE - 1})"${ARCHIVE_PAGE <= 1 ? ' disabled' : ''}>← Prev</button>
+    <span class="pg-info">${ARCHIVE_PAGE} / ${pages}</span>
+    <button class="pg-btn" onclick="archiveGo(${ARCHIVE_PAGE + 1})"${ARCHIVE_PAGE >= pages ? ' disabled' : ''}>Next →</button>
+  </div>`;
+  html += `<div id="archiveDetail"></div>`;
+  archiveEl.innerHTML = html;
+}
+
+function archiveGo(p){ ARCHIVE_PAGE = p; renderArchive(); window.scrollTo({top:0, behavior:'smooth'}); }
+
+function showArchiveGame(id){
+  const m = ARCHIVE_DATA.find(x => x.id === id); if (!m) return;
+  const detail = document.getElementById('archiveDetail'); if (!detail) return;
+  detail.innerHTML = `<div style="margin:14px 0"><button class="tab" onclick="renderArchive()">← Back to archive</button></div>` + proCard(m);
+  detail.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function refreshArchive(){
+  try {
+    const r = await fetch('api/archive'); const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    ARCHIVE_DATA = j.games || [];
+    ARCHIVE_PAGE = 1;
+    renderArchive();
+  } catch(e){ showError('Failed to load archive: ' + e.message); }
+}
+
+/* ---------------- view switching ---------------- */
+const TAB_DEFS = [['proinrun', 'PROINRUN'], ['archive', 'Archive']];
+function renderTabs(){
+  $('#tabbar').innerHTML = TAB_DEFS.filter(([k]) => k === 'proinrun' || ADMIN)
+    .map(([k, l]) => `<button class="tab${k === activeTab ? ' active' : ''}" id="tab${k[0].toUpperCase()}${k.slice(1)}" onclick="showTab('${k}')">${l}</button>`).join('');
+}
+async function bootAuth(){
+  try {
+    const r = await fetch('api/auth/me'); const j = await r.json();
+    ADMIN = !!(j.email && j.email.length);
+    ADMIN_EMAIL = j.email || '';
+  } catch(e){ ADMIN = false; }
+  renderTabs();
+  showTab('proinrun');
+}
+function showTab(tab){
+  activeTab = tab;
+  renderTabs();
+  listEl.style.display = 'none';
+  detailEl.style.display = 'none';
+  inrunEl.style.display = 'none';
+  proinrunEl.style.display = tab === 'proinrun' ? 'block' : 'none';
+  archiveEl.style.display = tab === 'archive' ? 'block' : 'none';
+  $('#statusbar').style.display = 'none';
+  if (tab === 'proinrun'){ $('#sub').textContent = 'PROINRUN · in-running metrics'; refreshProinrun(); }
+  else if (tab === 'archive'){ $('#sub').textContent = 'Archive · finished NBA games'; refreshArchive(); }
+}
+
+/* ---------------- boot ---------------- */
+renderTabs();
+refreshProinrun();
+bootAuth();
+</script>
+</body>
+</html>
