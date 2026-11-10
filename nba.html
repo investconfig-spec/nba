@@ -10,7 +10,7 @@ header{position:sticky;top:0;z-index:20;background:#0c0c0fee;backdrop-filter:blu
 .hd{max-width:1320px;margin:auto;display:flex;align-items:center;gap:18px;padding:10px 16px;flex-wrap:wrap}
 .logo{font:26px Impact,sans-serif;letter-spacing:.06em}.logo b{color:var(--acc)}
 nav{display:flex;gap:2px;flex-wrap:wrap}nav button{background:none;border:0;color:var(--mu);padding:8px 12px;font:600 13px inherit;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;border-bottom:2px solid transparent}
-nav button.on,nav button:hover{color:#fff;border-color:var(--acc)}
+nav button.on,nav button:hover{color:#fff;border-color:var(--acc)}nav a.inrun-link{color:var(--gold);text-decoration:none;padding:8px 12px;font:600 13px inherit;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid transparent}nav a.inrun-link:hover{color:#fff;border-color:var(--gold)}
 .chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.chip{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:3px 10px;font-size:12px;color:var(--mu)}.chip b{color:var(--tx)}
 main{max-width:1320px;margin:auto;padding:18px 16px 60px}
 .grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}.g4{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
@@ -63,6 +63,15 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .tp5-team.mir .tp5-h{text-align:right}
 .tp5-row.mir{flex-direction:row-reverse}
 .tp5-team.mir .tp5-nm{text-align:right}
+.tp5-team.winner{background:#fff9c4;border-radius:8px;padding:8px 10px}
+.tp5-team.winner .tp5-h{color:#7a6200;border-bottom-color:rgba(122,98,0,.3)}
+.tp5-team.winner .tp5-nm{color:#4a3b00}
+.tp5-team.winner .tp5-sc{color:#8a6d00}
+.tp5-total{margin-top:6px;padding-top:5px;border-top:1px solid var(--ln);font-size:11px;color:var(--mu);font-variant-numeric:tabular-nums}
+.tp5-team.winner .tp5-total{color:#7a6200;border-top-color:rgba(122,98,0,.3)}
+.tp5-team.mir .tp5-total{text-align:right}
+.tp5-win{display:inline-block;background:#e6c300;color:#3a2e00;border-radius:3px;padding:0 5px;font-size:9px;font-weight:800;letter-spacing:.06em;margin-left:5px;vertical-align:1px}
+.tp5-winbar{text-align:center;font-size:12px;font-weight:700;margin-bottom:10px;color:var(--gold)}
 @media(max-width:520px){.tp5-grid{grid-template-columns:1fr}}
 .stbl{overflow-x:auto}.stbl table{min-width:520px}
 .tlogo{width:22px;height:22px;border-radius:50%;object-fit:contain;vertical-align:middle;background:#1e1c24;margin-right:7px}
@@ -100,9 +109,10 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .prow .tm{color:var(--mu);font-size:11px;width:60px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prow .val{font:700 16px Impact,'Arial Narrow',sans-serif;min-width:48px;text-align:right;color:var(--acc)}
 /* leaders boxes (3 per row, top 5 + show more) */
-.lead-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
-@media(max-width:860px){.lead-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.lead-grid{grid-template-columns:1fr}}
+.lead-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+@media(max-width:860px){.lead-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.lead-grid{grid-template-columns:minmax(0,1fr)}}
+.leadbox{min-width:0}
 .leadbox h3{margin-bottom:8px}
 .leadbox .prow{padding:6px 0}
 .leadbox .leadrows .prow:last-child{border-bottom:0}
@@ -120,7 +130,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 /* modal */
 .modal{position:fixed;inset:0;background:#000c;z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
 .mb{background:var(--p);border:1px solid var(--ln);border-radius:12px;max-width:980px;width:100%;padding:18px;position:relative}
-.x{position:absolute;right:12px;top:8px;background:none;border:0;color:#fff;font-size:26px;cursor:pointer}
+.x{position:absolute;right:12px;top:10px;z-index:10;background:rgba(0,0,0,.62);border:0;color:#fff;font-size:22px;line-height:1;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs button{background:var(--p2);color:var(--mu);border:1px solid var(--ln);border-radius:99px;padding:5px 14px;font:600 12px inherit;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}.tabs button.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
 .bxteams{display:grid;grid-template-columns:1fr 1fr;gap:14px}.bxteam{background:var(--p2);border:1px solid var(--ln);border-radius:8px;padding:10px}
 .bxteam h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:14px}
@@ -157,7 +167,7 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-vsbig{font-family:Impact,'Arial Narrow',sans-serif;color:var(--mu);font-size:20px;flex:none}
 .mm-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--ln)}
 .mm-row:last-child{border-bottom:0}
-.mm-side{flex:1;display:flex;align-items:center;gap:8px}
+.mm-side{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
 .mm-side.left{justify-content:flex-end}
 .mm-side.right{justify-content:flex-start}
 .mm-bar{flex:1;display:flex;height:18px;background:var(--p2);border-radius:5px;overflow:hidden}
@@ -173,8 +183,11 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .mm-vs-head{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
 .mm-spread{font:700 12px "Segoe UI",system-ui,Arial,sans-serif;background:var(--p2);border:1px solid var(--ln);border-radius:6px;padding:3px 8px;white-space:nowrap;color:var(--tx);font-variant-numeric:tabular-nums}
 .mm-total{font:700 12px "Segoe UI",system-ui,Arial,sans-serif;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.45);border-radius:6px;padding:3px 8px;white-space:nowrap;color:var(--grn);font-variant-numeric:tabular-nums}
-.mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx)}
+.godds{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:8px;border-top:1px solid var(--ln)}
+.godds .od{font:700 11.5px "Segoe UI",system-ui,Arial,sans-serif;background:var(--p2);border:1px solid var(--ln);border-radius:6px;padding:2px 7px;white-space:nowrap;color:var(--tx);font-variant-numeric:tabular-nums}
+.godds .od.t{background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.45);color:var(--grn)}
+.mm-vs-odds{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mm-vs-name{text-align:center;font-family:Impact,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:15px;color:var(--tx);overflow-wrap:break-word;max-width:100%}
 .mm-val.hi{background:rgba(255,105,180,.30);border-radius:4px;padding:1px 5px;color:#ffd7e8;font-weight:700}
 /* results archive calendar (compact) */
 .calcard{margin-bottom:18px;padding:12px 14px}
@@ -191,7 +204,31 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 .cal-c{font:700 9px Impact,'Arial Narrow',sans-serif;color:var(--acc);line-height:1;background:rgba(255,107,0,.18);border-radius:99px;padding:1px 5px;min-width:15px;text-align:center}
 .cal-foot{display:flex;align-items:center;gap:10px;margin-top:10px}
 .cal-all{background:var(--p2);border:1px solid var(--ln);border-radius:99px;padding:3px 14px;color:var(--mu);cursor:pointer;font:600 11px inherit;text-transform:uppercase;letter-spacing:.03em}.cal-all.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+.casc{background:#0d0f12;border-bottom:1px solid var(--ln)}
+.casc-in{max-width:1280px;margin:auto;display:flex;flex-direction:column;align-items:center;gap:9px;padding:13px 16px 11px;text-align:center}
+.casc-crumb{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:center}
+.casc-brand{font:700 19px Impact,"Arial Narrow",sans-serif;letter-spacing:.04em;color:var(--tx);text-decoration:none}
+.casc-brand b{color:var(--gold)}
+.casc-sep{color:var(--mu);font-size:17px}
+.casc-cur{font:700 15px "Segoe UI",system-ui,sans-serif;color:var(--tx);text-transform:uppercase;letter-spacing:.05em}
+.casc-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.casc-nav a{font:600 13px "Segoe UI",system-ui,sans-serif;color:var(--tx);border:1px solid var(--ln);border-radius:99px;padding:7px 16px;text-decoration:none;transition:border-color .15s ease,background .15s ease}
+.casc-nav a:hover{border-color:var(--gold);background:rgba(255,255,255,.04)}
+
+/* highlights tab */
+.hl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.hl-card{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--p2,#15171c);border:1px solid var(--ln,#2a2c34);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;color:inherit}
+.hl-card:hover{border-color:var(--acc,#e0b84c)}
+.hl-thumb{position:relative;display:block;aspect-ratio:16/9;background:#000}
+.hl-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.hl-play{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;color:#fff;background:rgba(0,0,0,.28)}
+.hl-cap{font-size:13px;font-weight:600;line-height:1.35;padding:0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hl-ch{font-size:11px;opacity:.65;padding:0 10px 10px}
+.hl-frame{position:relative;padding-top:56.25%;background:#000;border-radius:8px;overflow:hidden}
+.hl-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.hl-title{font-size:13px;margin-top:10px;opacity:.8}
 </style></head><body>
+<div class="casc"><div class="casc-in"><div class="casc-crumb"><a class="casc-brand" href="https://sportstlm.com/">⚽ <b>SPORT</b>STLM</a><span class="casc-sep">›</span><span class="casc-cur">NBA</span></div><nav class="casc-nav"><a href="https://sportstlm.com/">⚽ Football</a><a href="https://lottery.sportstlm.com/">🎰 Lottery</a><a href="https://racing.sportstlm.com/?sport=gallops">🏇 Horse Racing</a><a href="https://racing.sportstlm.com/?sport=greyhounds">🐕 Greyhounds</a><a href="https://ufc.sportstlm.com/">🥊 UFC</a><a href="https://snooker.sportstlm.com/">🎱 Snooker</a><a href="https://nfl.sportstlm.com/">🏈 NFL</a><a href="https://nhl.sportstlm.com/">🏒 NHL</a><a href="https://mlb.sportstlm.com/">⚾ MLB</a><a href="https://tennis.sportstlm.com/">🎾 Tennis</a><a href="https://badminton.sportstlm.com/">🏸 Badminton</a></nav></div></div>
 <header><div class="hd"><div class="logo">NBA<b>HUB</b></div>
 <nav id="nav"></nav><div class="chips" id="chips"></div></div></header>
 <main id="view"><div class="loading">Loading…</div></main>
@@ -200,8 +237,14 @@ pre{background:#0a0a0c;border:1px solid var(--ln);border-radius:6px;padding:10px
 "use strict";
 if(location.protocol==='file:'){location.replace('http://localhost:8092/nba.html')}
 
-const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['results','Results'],['players','Players'],['leaders','Leaders'],['news','News'],['admin','Admin']];
+const TABS=[['dash','Dashboard'],['stand','Standings'],['teams','Teams'],['results','Results'],['players','Players'],['leaders','Leaders'],['highlights','Highlights'],['news','News'],['admin','Admin']];
 let TAB='dash';
+let ADMIN=false, ADMIN_EMAIL='';
+async function bootAuth(){
+  try{const r=await fetch('/api/auth/me');const d=await r.json();if(d.email){ADMIN=true;ADMIN_EMAIL=d.email;}}catch(e){}
+  if(location.pathname==='/admin'){if(ADMIN){TAB='admin';}else{location.href='https://sportstlm.com/admin';return;}}
+  nav();render();
+}
 const DATA={};
 
 const $=s=>document.querySelector(s);
@@ -220,10 +263,19 @@ function gameCard(g){
   const detail=st==='scheduled'?fmtTime(g.date):(g.statusDetail||'');
   const row=(t)=>{const w=t&&t.winner?' win':'';return `<div class="grow${w}">${img(t&&t.logo,'lg',t&&t.name)}<span class="nm">${esc(t&&t.name||'')}</span><span class="rec">${esc(t&&t.record||'')}</span><span class="sc">${esc(t&&t.score!==''?t.score:'–')}</span></div>`};
   const ok=g.home&&g.home.abbr&&g.away&&g.away.abbr;
-  const matchBtn=(st==='scheduled'&&ok)?`<button class="gbtn" onclick="toggleMatchup('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.away.abbr)}')">Match Up Metrics</button>`:'';
+  const matchBtn=ok?`<button class="gbtn" onclick="toggleMatchup('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.away.abbr)}')">Match Up Metrics</button>`:'';
   const top5Btn=ok?`<button class="gbtn tp5" onclick="toggleTop5('${esc(g.id)}','${esc(g.home.abbr)}','${esc(g.home.name)}','${esc(g.away.abbr)}','${esc(g.away.name)}')">Top 5 Players</button>`:'';
   const actions=(matchBtn||top5Btn)?`<div class="gactions">${matchBtn}${top5Btn}</div>`:'';
-  return `<div class="gcard" data-game="${esc(g.id)}"><div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>${row(g.home)}${row(g.away)}${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}${actions}<div class="gdetail"></div></div>`;
+  const oddsHtml=oddsLine(g.odds);
+  return `<div class="gcard" data-game="${esc(g.id)}"><div class="gtop">${pill}<span class="ev">${esc(detail)}${clock}</span></div>${row(g.home)}${row(g.away)}${oddsHtml}${g.venue?`<div class="gfoot"><span>📍 ${esc(g.venue)}</span></div>`:''}${actions}<div class="gdetail"></div></div>`;
+}
+function oddsLine(o){
+  if(!o)return '';
+  const h=o.h&&o.h.point!=null?`H ${o.h.point>0?'+':''}${o.h.point}`:'';
+  const a=o.a&&o.a.point!=null?`A ${o.a.point>0?'+':''}${o.a.point}`:'';
+  const t=o.total!=null?`O/U ${Number(o.total).toFixed(1)}`:'';
+  if(!h&&!a&&!t)return '';
+  return `<div class="godds">${h?`<span class="od">${h}</span>`:''}${a?`<span class="od">${a}</span>`:''}${t?`<span class="od t">${t}</span>`:''}</div>`;
 }
 async function renderDash(){
   const v=$('#view');v.innerHTML='<div class="loading">Loading scoreboard…</div>';
@@ -475,20 +527,27 @@ function top5HTML(players,ha,hn,aa,an){
   const topFor=abbr=>players.filter(p=>(p.teamShortName||'').toUpperCase()===(abbr||'').toUpperCase())
     .map(p=>({...p,combo:(n(p.stats&&p.stats.tsPct)+n(p.stats&&p.stats.avgPoints))/1.3}))
     .sort((a,b)=>b.combo-a.combo).slice(0,5);
-  const render=(abbr,name,mirror)=>{
-    const top=topFor(abbr);
+  const home=topFor(ha), away=topFor(aa);
+  const hTotal=home.reduce((s,p)=>s+p.combo,0);
+  const aTotal=away.reduce((s,p)=>s+p.combo,0);
+  const homeWin=hTotal>aTotal, awayWin=aTotal>hTotal;
+  const render=(top,abbr,name,mirror,win)=>{
+    const total=top.reduce((s,p)=>s+p.combo,0);
     const rows=top.map(p=>mirror
       ?`<div class="tp5-row mir"><div class="tp5-sc">${p.combo.toFixed(1)}</div><div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div></div>${img(p.headshot,'hs',p.name)}</div>`
       :`<div class="tp5-row">${img(p.headshot,'hs',p.name)}<div class="tp5-info"><div class="tp5-nm">${esc(p.name||'')}</div></div><div class="tp5-sc">${p.combo.toFixed(1)}</div></div>`
     ).join('');
-    return `<div class="tp5-team${mirror?' mir':''}"><div class="tp5-h">${esc(name||abbr)}</div>${rows||'<div class="mu sm">No players yet</div>'}</div>`;
+    return `<div class="tp5-team${mirror?' mir':''}${win?' winner':''}"><div class="tp5-h">${esc(name||abbr)}${win?' <span class="tp5-win">WINNER</span>':''}</div>${rows||'<div class="mu sm">No players yet</div>'}<div class="tp5-total">Total ${total.toFixed(1)}</div></div>`;
   };
-  return `<div class="tp5-head">Top 5 Players</div><div class="tp5-grid">${render(ha,hn,false)}${render(aa,an,true)}</div>`;
+  const winbar=homeWin?`🏆 ${esc(hn||ha)} wins ${hTotal.toFixed(1)} vs ${aTotal.toFixed(1)}`
+              :awayWin?`🏆 ${esc(an||aa)} wins ${aTotal.toFixed(1)} vs ${hTotal.toFixed(1)}`
+              :`Rating tied at ${hTotal.toFixed(1)}`;
+  return `<div class="tp5-head">Top 5 Players</div><div class="tp5-winbar">${winbar}</div><div class="tp5-grid">${render(home,ha,hn,false,homeWin)}${render(away,aa,an,true,awayWin)}</div>`;
 }
 
 // ---------- Results archive (card view + calendar) ----------
 let _res=null, _calY=0, _calM=0, _calSel='';
-async function getResults(){if(_res)return _res;const {data}=await api('/api/results');_res=(data&&data.results)||[];_res.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));return _res;}
+async function getResults(){if(_res)return _res;const {data}=await api('/api/results');_res=(data&&data.results)||[];_res=_res.filter(r=>r.status==='final');_res.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));return _res;}
 function resKey(iso){const d=new Date(iso);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function resByDay(rs){const m=new Map();for(const r of rs){const k=resKey(r.date);if(!m.has(k))m.set(k,[]);m.get(k).push(r);}return m;}
 async function renderResults(){
@@ -600,6 +659,7 @@ function exportOddsCsv(rows){
 
 // ---------- Admin ----------
 async function renderAdmin(){
+  if(!ADMIN){location.href='https://sportstlm.com/admin';return}
   const v=$('#view');v.innerHTML='<div class="loading">Loading health…</div>';
   const h=await api('/api/health');
   const st=h.data.staging||[];
@@ -615,15 +675,37 @@ async function renderAdmin(){
     </div>`;
 }
 
-function nav(){$('#nav').innerHTML=TABS.map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('')}
+/* ---------- highlights (played in-page, the visitor never leaves the hub) ---------- */
+async function renderHighlights(){
+  const v=$('#view'); v.innerHTML='<div class="loading">Loading highlights…</div>';
+  const r=await api('/api/highlights?limit=30').catch(()=>({data:{items:[]}}));
+  const items=(r&&r.data&&r.data.items)||[];
+  if(!items.length){v.innerHTML='<div class="card"><h3>Highlights</h3><p class="mu">No highlights stored yet — the sync runs every 4 hours.</p></div>';return}
+  v.innerHTML=`<div class="sec"><h2>Highlights</h2><p class="mu sm">Latest from the official channel — tap any card to play it here.</p></div>
+    <div class="hl-grid">${items.map(x=>`<button class="hl-card" data-vid="${esc(x.id)}" data-title="${esc(x.title)}">
+      <span class="hl-thumb"><img loading="lazy" src="${esc(x.thumb||'')}" alt=""><span class="hl-play">▶</span></span>
+      <span class="hl-cap">${esc(x.title)}</span><span class="hl-ch">${esc(x.channel||'')}</span>
+    </button>`).join('')}</div>`;
+}
+function playHighlight(id,title){
+  const m=$('#modal');
+  m.innerHTML=`<div class="modal"><div class="mb"><button class="x" onclick="$('#modal').innerHTML=''">×</button>
+    <div class="hl-frame"><iframe src="https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+    <div class="hl-title">${esc(title)}</div></div></div>`;
+}
+document.addEventListener('click',e=>{const c=e.target.closest('.hl-card'); if(c) playHighlight(c.dataset.vid, c.dataset.title);});
+
+function nav(){$('#nav').innerHTML=`<a class="inrun-link" href="https://sportstlm.com/livenba/" target="_blank" rel="noopener">⚡ Live In-Run</a>`+TABS.filter(([k])=>k!=='admin'||ADMIN).map(([k,l])=>`<button data-t="${k}" class="${k===TAB?'on':''}">${l}</button>`).join('')}
 function go(t){TAB=t;nav();render()}
-function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,results:renderResults,players:renderPlayers,leaders:renderLeaders,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
+function render(){({dash:renderDash,stand:renderStand,teams:renderTeams,results:renderResults,players:renderPlayers,leaders:renderLeaders,highlights:renderHighlights,news:renderNews,odds:renderOdds,admin:renderAdmin}[TAB]||renderDash)();}
 
 document.addEventListener('click',e=>{
   const nb=e.target.closest('#nav button');if(nb){go(nb.dataset.t);return}
   const tc=e.target.closest('.tcard');if(tc){openTeam(tc.dataset.team);return}
 });
 
-nav();render();
+bootAuth();
 </script>
+<style>.mb-nav{display:none}@media(max-width:720px){.mb-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;background:rgba(13,15,18,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid #2a2c34;padding:5px 4px calc(5px + env(safe-area-inset-bottom,0px))}.mb-item{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8b90a0;font:600 10px system-ui,-apple-system,sans-serif;letter-spacing:.01em;border-radius:14px;position:relative;text-decoration:none}.mb-item:hover{text-decoration:none}.mb-ic{width:22px;height:22px;display:grid;place-items:center}.mb-item svg{width:22px;height:22px}.mb-item.active{color:#eceef2}.mb-item.active::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:3px;background:#FF7A1A}body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}.casc{display:none}}</style>
+<nav class="mb-nav" aria-label="Sports"><a href="https://sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#E0B84C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5 15 9.5 13.8 12.8 10.2 12.8 9 9.5Z"/></svg></span><span class="mb-label">FL</span></a><a href="https://lottery.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#F5A623"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><circle cx="9.5" cy="9" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14" r="1.1" fill="currentColor" stroke="none"/></svg></span><span class="mb-label">LY</span></a><a href="https://racing.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#C6F24E"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20a7 7 0 0 1 14 0"/></svg></span><span class="mb-label">RG</span></a><a href="https://ufc.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#F0443C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9.5c0-1.5 1-2.5 2.5-2.5 1.2 0 2 .6 2.5 1.5.5-.9 1.3-1.5 2.5-1.5 1.5 0 2.5 1 2.5 2.5 0 2.6-2.2 4.6-5 6.2-2.8-1.6-5-3.6-5-6.2Z"/></svg></span><span class="mb-label">UFC</span></a><a href="https://snooker.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#2FD173"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg></span><span class="mb-label">SR</span></a><a href="https://nba.sportstlm.com/" class="mb-item active"><span class="mb-ic" style="color:#FF7A1A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span><span class="mb-label">NBA</span></a><a href="https://nfl.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#0F9D58"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="6"/><path d="M12 6v12M3 12h18M12 4v2M12 18v2"/></svg></span><span class="mb-label">NFL</span></a><a href="https://nhl.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#7CB9E8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6l2 12 6 3 6-3 2-12Z"/></svg></span><span class="mb-label">NHL</span></a><a href="https://mlb.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#D94F2B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M8 12h8M12 8l-3 4M12 8l3 4"/></svg></span><span class="mb-label">MLB</span></a><a href="https://tennis.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#c6e044"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12c0 4.5-4 7.5-4 7.5s-4-3-4-7.5a4 4 0 0 1 8 0Z" fill="currentColor" stroke="none" opacity=".25"/><path d="M12 12c0-4.5 4-7.5 4-7.5s4 3 4 7.5a4 4 0 0 1-8 0Z" fill="currentColor" stroke="none" opacity=".25"/><path d="M12 3.5V1M12 23v-2.5"/></svg></span><span class="mb-label">TS</span></a><a href="https://badminton.sportstlm.com/" class="mb-item"><span class="mb-ic" style="color:#26c6da"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c3.2 0 5.6 1.9 5.6 4.5 0 .7-.2 1.4-.5 2l-1.9-1.9c-1.8-1.3-4.6-1.3-6.4 0L7 10c-.4-.6-.6-1.3-.6-2 0-2.6 2.4-4.5 5.6-4.5Z"/><path d="M12 9.5v3M9.8 12.8 7.2 20M12 12.8V20M14.2 12.8 16.8 20"/></svg></span><span class="mb-label">BN</span></a></nav>
 </body></html>
